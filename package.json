@@ -1,0 +1,10 @@
+{
+  "name": "secop-dashboard",
+  "version": "1.0.0",
+  "workspaces": ["api", "frontend"],
+  "scripts": {
+    "dev": "bun dev.ts",
+    "build": "bun --cwd frontend run build",
+    "start": "docker compose up --build"
+  }
+}
