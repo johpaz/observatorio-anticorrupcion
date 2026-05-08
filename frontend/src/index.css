@@ -23,3 +23,39 @@ body {
   background: #cbd5e1;
   border-radius: 3px;
 }
+
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px #00ff41) drop-shadow(0 0 22px #00ff4180);
+  }
+  50% {
+    filter: drop-shadow(0 0 22px #00ff41) drop-shadow(0 0 45px #00ff41) drop-shadow(0 0 70px #00ff4150);
+  }
+}
+
+@keyframes bar-fill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+@keyframes bar-shine {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.logo-glow {
+  animation: glow-pulse 1.8s ease-in-out infinite;
+}
+
+.loading-bar {
+  animation: bar-fill 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background: linear-gradient(90deg, #00cc33, #00ff41, #00cc33);
+  background-size: 200% auto;
+}
+
+.loading-bar-shine {
+  animation: bar-fill 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards,
+             bar-shine 1.2s linear infinite;
+  background: linear-gradient(90deg, #00cc33 0%, #00ff41 40%, #afffcc 50%, #00ff41 60%, #00cc33 100%);
+  background-size: 200% auto;
+}

@@ -2,21 +2,37 @@ version: '3.9'
 
 services:
   api:
+    image: johpaz/secop-api:latest
     build:
       context: ./api
-    ports:
-      - "3001:3001"
     environment:
       - SOCRATA_APP_TOKEN=${SOCRATA_APP_TOKEN:-cXYVUaiVij5vOg4kc9EvQtSI1}
       - PORT=3001
       - CACHE_TTL=300
     restart: unless-stopped
+    networks:
+      - n8n_evoapi
 
   frontend:
+    image: johpaz/secop-frontend:latest
     build:
       context: ./frontend
-    ports:
-      - "80:80"
     depends_on:
       - api
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dash_col_5.rule=Host(`${DASHBOARD_DOMAIN}`)
+      - traefik.http.routers.dash_col_5.entrypoints=web,websecure
+      - traefik.http.routers.dash_col_5.tls=true
+      - traefik.http.routers.dash_col_5.tls.certresolver=mytlschallenge
+      - traefik.http.routers.dash_col_5.middlewares=dash_col_5-headers@docker
+      - traefik.http.middlewares.dash_col_5-headers.headers.SSLRedirect=true
+      - traefik.http.middlewares.dash_col_5-headers.headers.STSSeconds=315360000
+      - traefik.http.services.dash_col_5.loadbalancer.server.port=80
+    networks:
+      - n8n_evoapi
+
+networks:
+  n8n_evoapi:
+    external: true

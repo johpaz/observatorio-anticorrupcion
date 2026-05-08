@@ -1,91 +1,92 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import FilterBar from '../components/FilterBar'
 import KPICard from '../components/KPICard'
 import BarChartComponent from '../components/charts/BarChartComponent'
 import LineChartComponent from '../components/charts/LineChartComponent'
 import PieChartComponent from '../components/charts/PieChartComponent'
 import DataTable from '../components/DataTable'
-import { archivosApi, type ArchivosMetadata } from '../api/client'
+import { archivosApi } from '../api/client'
 import { formatBytes, formatNumber, formatDate } from '../utils/formatters'
-
-interface Filters {
-  year: string
-  quarter: string
-  entidad: string
-}
-
-const INITIAL: Filters = { year: '', quarter: '', entidad: '' }
+import { useArchivosStore, ARCHIVOS_INITIAL, cacheKey } from '../store/useArchivosStore'
 
 export default function ArchivosPage() {
-  const [filters, setFilters] = useState<Filters>(INITIAL)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [meta, setMeta] = useState<ArchivosMetadata>({ years: [], entidades: [] })
-  const [kpis, setKpis] = useState<any>({})
-  const [porExt, setPorExt] = useState<any[]>([])
-  const [porMes, setPorMes] = useState<any[]>([])
-  const [porEntidad, setPorEntidad] = useState<any[]>([])
-  const [list, setList] = useState<any[]>([])
+  const {
+    metadata, metadataLoaded,
+    filters, page, loading, data,
+    setMetadata, setFilters, setPage, setLoading, setData,
+    getFromCache, saveToCache,
+  } = useArchivosStore()
 
+  // Metadata: solo una vez en toda la sesion
   useEffect(() => {
-    archivosApi.metadata().then(setMeta).catch(console.error)
-  }, [])
+    if (metadataLoaded) return
+    archivosApi.metadata().then(setMetadata).catch(console.error)
+  }, [metadataLoaded, setMetadata])
 
   const loadData = useCallback(async () => {
+    const key = cacheKey(filters, page)
+
+    const cached = getFromCache(key)
+    if (cached) {
+      setData(cached)
+      return
+    }
+
     setLoading(true)
     try {
       const f = filters as Record<string, string>
-      const [k, e, m, en, l] = await Promise.all([
+      const [kpis, porExtension, porMes, porEntidad, list] = await Promise.all([
         archivosApi.kpis(f),
         archivosApi.porExtension(f),
         archivosApi.porMes({ year: filters.year }),
         archivosApi.porEntidad(f),
         archivosApi.list({ ...f, page: String(page), limit: '20' }),
       ])
-      setKpis(k); setPorExt(e); setPorMes(m); setPorEntidad(en); setList(l)
+      const newData = { kpis, porExtension, porMes, porEntidad, list }
+      setData(newData)
+      saveToCache(key, newData)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }, [filters, page])
+  }, [filters, page, getFromCache, saveToCache, setData, setLoading])
 
   useEffect(() => { loadData() }, [loadData])
 
   const handleChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1)
+    setFilters({ ...filters, [key]: value })
   }
 
   const filterConfig = [
-    { key: 'year', label: 'Ano', options: meta.years.map(y => ({ value: String(y), label: String(y) })) },
+    { key: 'year', label: 'Ano', options: (metadata?.years ?? []).map(y => ({ value: String(y), label: String(y) })) },
     { key: 'quarter', label: 'Trimestre', options: [
       { value: '1', label: 'Q1 Ene-Mar' }, { value: '2', label: 'Q2 Abr-Jun' },
       { value: '3', label: 'Q3 Jul-Sep' }, { value: '4', label: 'Q4 Oct-Dic' },
     ]},
-    { key: 'entidad', label: 'Entidad', options: meta.entidades.slice(0, 150).map(e => ({ value: e, label: e })) },
+    { key: 'entidad', label: 'Entidad', options: (metadata?.entidades ?? []).slice(0, 150).map(e => ({ value: e, label: e })) },
   ]
 
-  const extData = porExt.map(r => ({
+  const extData = data.porExtension.map(r => ({
     name: (r.extension ?? 'N/A').toUpperCase(),
     value: Number(r.total),
     tamano: Number(r.tamanno_total),
   }))
 
-  const mesData = porMes.map(r => ({
+  const mesData = data.porMes.map(r => ({
     name: (r.mes ?? '').substring(0, 7),
     archivos: Number(r.total),
     tamano: Number(r.tamanno_total) / 1e6,
   }))
 
-  const entidadData = porEntidad.map(r => ({
+  const entidadData = data.porEntidad.map(r => ({
     name: (r.entidad ?? 'N/A').substring(0, 28),
     total: Number(r.total),
     tamano: Number(r.tamanno_total),
   }))
 
-  const totalSize = Number(kpis?.tamanno_total ?? 0)
-  const totalFiles = Number(kpis?.total ?? 0)
+  const totalSize = Number(data.kpis?.tamanno_total ?? 0)
+  const totalFiles = Number(data.kpis?.total ?? 0)
 
   return (
     <div className="p-6 space-y-5">
@@ -101,7 +102,12 @@ export default function ArchivosPage() {
         )}
       </div>
 
-      <FilterBar filters={filters as Record<string, string>} filterConfig={filterConfig} onChange={handleChange} onClear={() => { setFilters(INITIAL); setPage(1) }} />
+      <FilterBar
+        filters={filters as Record<string, string>}
+        filterConfig={filterConfig}
+        onChange={handleChange}
+        onClear={() => setFilters(ARCHIVOS_INITIAL)}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KPICard title="Total Archivos" value={formatNumber(totalFiles)} color="blue" />
@@ -112,9 +118,7 @@ export default function ArchivosPage() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Archivos Subidos por Mes</h2>
         <LineChartComponent
-          data={mesData}
-          xKey="name"
-          dualAxis
+          data={mesData} xKey="name" dualAxis
           lines={[
             { key: 'archivos', name: 'Archivos', color: '#3b82f6' },
             { key: 'tamano', name: 'Tamano (MB)', color: '#10b981', yAxisId: 'right' },
@@ -125,11 +129,7 @@ export default function ArchivosPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Archivos por Extension</h2>
-          <BarChartComponent
-            data={extData}
-            xKey="name"
-            bars={[{ key: 'value', name: 'Cantidad', color: '#3b82f6' }]}
-          />
+          <BarChartComponent data={extData} xKey="name" bars={[{ key: 'value', name: 'Cantidad', color: '#3b82f6' }]} />
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Distribucion Tamano por Extension</h2>
@@ -139,17 +139,12 @@ export default function ArchivosPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Top Entidades por Archivos</h2>
-        <BarChartComponent
-          data={entidadData}
-          xKey="name"
-          bars={[{ key: 'total', name: 'Archivos', color: '#8b5cf6' }]}
-          horizontal
-        />
+        <BarChartComponent data={entidadData} xKey="name" bars={[{ key: 'total', name: 'Archivos', color: '#8b5cf6' }]} horizontal />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Lista de Archivos</h2>
-        <ArchivosTable data={list} page={page} onPageChange={setPage} loading={loading} />
+        <ArchivosTable data={data.list} page={page} onPageChange={setPage} loading={loading} />
       </div>
     </div>
   )
@@ -187,12 +182,8 @@ function ArchivosTable({ data, page, onPageChange, loading }: {
                 <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{formatDate(row.fecha_carga)}</td>
                 <td className="px-3 py-2.5">
                   {row.url_descarga_documento?.url ? (
-                    <a
-                      href={row.url_descarga_documento.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 font-medium text-xs"
-                    >
+                    <a href={row.url_descarga_documento.url} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 font-medium text-xs">
                       Descargar
                     </a>
                   ) : '-'}
@@ -206,9 +197,9 @@ function ArchivosTable({ data, page, onPageChange, loading }: {
         <span className="text-xs text-slate-500">Pagina {page} · {data.length} registros</span>
         <div className="flex gap-2">
           <button onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1 || loading}
-            className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 disabled:opacity-40 hover:bg-slate-50 transition-colors">Anterior</button>
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 disabled:opacity-40 hover:bg-slate-50">Anterior</button>
           <button onClick={() => onPageChange(page + 1)} disabled={data.length < 20 || loading}
-            className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 disabled:opacity-40 hover:bg-slate-50 transition-colors">Siguiente</button>
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 disabled:opacity-40 hover:bg-slate-50">Siguiente</button>
         </div>
       </div>
     </div>

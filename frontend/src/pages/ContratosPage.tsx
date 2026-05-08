@@ -1,25 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import FilterBar from '../components/FilterBar'
 import KPICard from '../components/KPICard'
 import BarChartComponent from '../components/charts/BarChartComponent'
 import LineChartComponent from '../components/charts/LineChartComponent'
 import PieChartComponent from '../components/charts/PieChartComponent'
 import DataTable from '../components/DataTable'
-import { contratosApi, type ContratosMetadata } from '../api/client'
+import { contratosApi } from '../api/client'
 import { formatCOP, formatNumber, formatDate } from '../utils/formatters'
-
-interface Filters {
-  year: string
-  quarter: string
-  departamento: string
-  sector: string
-  tipo_de_contrato: string
-  estado_contrato: string
-}
-
-const INITIAL: Filters = {
-  year: '', quarter: '', departamento: '', sector: '', tipo_de_contrato: '', estado_contrato: '',
-}
+import { useContratosStore, CONTRATOS_INITIAL, cacheKey } from '../store/useContratosStore'
 
 const TABLE_COLS = [
   { key: 'nombre_entidad', label: 'Entidad' },
@@ -32,27 +20,33 @@ const TABLE_COLS = [
 ]
 
 export default function ContratosPage() {
-  const [filters, setFilters] = useState<Filters>(INITIAL)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [meta, setMeta] = useState<ContratosMetadata>({ years: [], departamentos: [], sectores: [], tipos: [], estados: [] })
-  const [kpis, setKpis] = useState<any>({})
-  const [porSector, setPorSector] = useState<any[]>([])
-  const [porTipo, setPorTipo] = useState<any[]>([])
-  const [porMes, setPorMes] = useState<any[]>([])
-  const [porDepto, setPorDepto] = useState<any[]>([])
-  const [porEstado, setPorEstado] = useState<any[]>([])
-  const [list, setList] = useState<any[]>([])
+  const {
+    metadata, metadataLoaded,
+    filters, page, loading, data,
+    setMetadata, setFilters, setPage, setLoading, setData,
+    getFromCache, saveToCache,
+  } = useContratosStore()
 
+  // Metadata: solo una vez en toda la sesion
   useEffect(() => {
-    contratosApi.metadata().then(setMeta).catch(console.error)
-  }, [])
+    if (metadataLoaded) return
+    contratosApi.metadata().then(setMetadata).catch(console.error)
+  }, [metadataLoaded, setMetadata])
 
   const loadData = useCallback(async () => {
+    const key = cacheKey(filters, page)
+
+    // Devolver datos del cache si estan frescos
+    const cached = getFromCache(key)
+    if (cached) {
+      setData(cached)
+      return
+    }
+
     setLoading(true)
     try {
       const f = filters as Record<string, string>
-      const [k, s, t, m, d, e, l] = await Promise.all([
+      const [kpis, porSector, porTipo, porMes, porDepto, porEstado, list] = await Promise.all([
         contratosApi.kpis(f),
         contratosApi.porSector(f),
         contratosApi.porTipo(f),
@@ -61,58 +55,58 @@ export default function ContratosPage() {
         contratosApi.porEstado(f),
         contratosApi.list({ ...f, page: String(page), limit: '20' }),
       ])
-      setKpis(k); setPorSector(s); setPorTipo(t); setPorMes(m)
-      setPorDepto(d); setPorEstado(e); setList(l)
+      const newData = { kpis, porSector, porTipo, porMes, porDepto, porEstado, list }
+      setData(newData)
+      saveToCache(key, newData)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }, [filters, page])
+  }, [filters, page, getFromCache, saveToCache, setData, setLoading])
 
   useEffect(() => { loadData() }, [loadData])
 
   const handleChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1)
+    setFilters({ ...filters, [key]: value })
   }
 
   const filterConfig = [
-    { key: 'year', label: 'Ano', options: meta.years.map(y => ({ value: String(y), label: String(y) })) },
+    { key: 'year', label: 'Ano', options: (metadata?.years ?? []).map(y => ({ value: String(y), label: String(y) })) },
     { key: 'quarter', label: 'Trimestre', options: [
       { value: '1', label: 'Q1 Ene-Mar' }, { value: '2', label: 'Q2 Abr-Jun' },
       { value: '3', label: 'Q3 Jul-Sep' }, { value: '4', label: 'Q4 Oct-Dic' },
     ]},
-    { key: 'departamento', label: 'Departamento', options: meta.departamentos.map(d => ({ value: d, label: d })) },
-    { key: 'sector', label: 'Sector', options: meta.sectores.map(s => ({ value: s, label: s })) },
-    { key: 'tipo_de_contrato', label: 'Tipo', options: meta.tipos.map(t => ({ value: t, label: t })) },
-    { key: 'estado_contrato', label: 'Estado', options: meta.estados.map(e => ({ value: e, label: e })) },
+    { key: 'departamento', label: 'Departamento', options: (metadata?.departamentos ?? []).map(d => ({ value: d, label: d })) },
+    { key: 'sector', label: 'Sector', options: (metadata?.sectores ?? []).map(s => ({ value: s, label: s })) },
+    { key: 'tipo_de_contrato', label: 'Tipo', options: (metadata?.tipos ?? []).map(t => ({ value: t, label: t })) },
+    { key: 'estado_contrato', label: 'Estado', options: (metadata?.estados ?? []).map(e => ({ value: e, label: e })) },
   ]
 
-  const sectorData = porSector.map(r => ({
+  const sectorData = data.porSector.map(r => ({
     name: (r.sector ?? 'N/A').substring(0, 28),
     valor: Number(r.valor_total),
     contratos: Number(r.total),
   }))
 
-  const tipoData = porTipo.map(r => ({
+  const tipoData = data.porTipo.map(r => ({
     name: r.tipo_de_contrato ?? 'N/A',
     value: Number(r.total),
   }))
 
-  const mesData = porMes.map(r => ({
+  const mesData = data.porMes.map(r => ({
     name: (r.mes ?? '').substring(0, 7),
     contratos: Number(r.total),
     valor: Number(r.valor_total) / 1e6,
   }))
 
-  const deptoData = porDepto.map(r => ({
+  const deptoData = data.porDepto.map(r => ({
     name: (r.departamento ?? 'N/A').substring(0, 28),
     valor: Number(r.valor_total),
     contratos: Number(r.total),
   }))
 
-  const estadoData = porEstado.map(r => ({
+  const estadoData = data.porEstado.map(r => ({
     name: r.estado_contrato ?? 'N/A',
     value: Number(r.total),
   }))
@@ -131,20 +125,23 @@ export default function ContratosPage() {
         )}
       </div>
 
-      <FilterBar filters={filters as Record<string, string>} filterConfig={filterConfig} onChange={handleChange} onClear={() => { setFilters(INITIAL); setPage(1) }} />
+      <FilterBar
+        filters={filters as Record<string, string>}
+        filterConfig={filterConfig}
+        onChange={handleChange}
+        onClear={() => setFilters(CONTRATOS_INITIAL)}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KPICard title="Total Contratos" value={formatNumber(Number(kpis?.total ?? 0))} color="blue" />
-        <KPICard title="Valor Total" value={formatCOP(Number(kpis?.valor_total ?? 0))} color="green" />
-        <KPICard title="Valor Promedio" value={formatCOP(Number(kpis?.valor_promedio ?? 0))} color="amber" />
+        <KPICard title="Total Contratos" value={formatNumber(Number(data.kpis?.total ?? 0))} color="blue" />
+        <KPICard title="Valor Total" value={formatCOP(Number(data.kpis?.valor_total ?? 0))} color="green" />
+        <KPICard title="Valor Promedio" value={formatCOP(Number(data.kpis?.valor_promedio ?? 0))} color="amber" />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Evolucion Mensual</h2>
         <LineChartComponent
-          data={mesData}
-          xKey="name"
-          dualAxis
+          data={mesData} xKey="name" dualAxis
           lines={[
             { key: 'contratos', name: 'Contratos', color: '#3b82f6' },
             { key: 'valor', name: 'Valor (M COP)', color: '#10b981', yAxisId: 'right' },
@@ -176,7 +173,7 @@ export default function ContratosPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Lista de Contratos</h2>
-        <DataTable data={list} columns={TABLE_COLS} page={page} onPageChange={setPage} loading={loading} />
+        <DataTable data={data.list} columns={TABLE_COLS} page={page} onPageChange={setPage} loading={loading} />
       </div>
     </div>
   )
