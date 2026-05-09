@@ -1,3 +1,4 @@
+import { join } from 'path'
 import { socrataQuery } from './socrata'
 import { db } from '../db/client'
 
@@ -36,7 +37,6 @@ function nivelFromScore(score: number): 'ROJO' | 'AMARILLO' | 'VERDE' {
 }
 
 function normalizeStr(s: string): string {
-  // eslint-disable-next-line no-misleading-character-class
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
@@ -48,6 +48,50 @@ async function fetchContracts(nit: string): Promise<SecopRecord[]> {
     '$limit': '500',
     '$order': 'fecha_de_fin_del_contrato DESC',
   }) as Promise<SecopRecord[]>
+}
+
+// Run Python Isolation Forest script in background subprocess
+async function runAnomalyDetection(sector: string): Promise<void> {
+  const scriptPath = join(import.meta.dir, '../scripts/anomaly_scorer.py')
+  const projectRoot = join(import.meta.dir, '../../..')
+  try {
+    const proc = Bun.spawn(
+      ['python3', scriptPath, sector],
+      { stdout: 'pipe', stderr: 'pipe', cwd: projectRoot }
+    )
+    await proc.exited
+    const out = await new Response(proc.stdout).text()
+    if (out.trim()) console.log(out.trim())
+  } catch (e) {
+    console.warn('[ML] Anomaly detection skipped:', String(e))
+  }
+}
+
+// Apply ML anomaly scores to in-memory results and update SQLite
+function applyMlScores(sector: string, results: ScoreResult[]): void {
+  const anomalyRows = db.query<{ nit: string; anomaly_score: number }, [string]>(
+    `SELECT nit, anomaly_score FROM anomaly_scores WHERE sector = ?`
+  ).all(sector)
+
+  if (anomalyRows.length === 0) return
+
+  const anomalyMap = new Map(anomalyRows.map(r => [r.nit, r.anomaly_score]))
+
+  for (const result of results) {
+    const anomalyScore = anomalyMap.get(result.nit)
+    if (anomalyScore === undefined || anomalyScore >= -0.05) continue
+    if (result.flags.some(f => f.startsWith('ANOMALIA'))) continue
+
+    // Map: score=-0.5 → +30pts, score=-0.05 → +0pts (linear)
+    const mlPts = Math.round((-anomalyScore - 0.05) / 0.45 * 30)
+    const bonus = Math.min(mlPts, 30)
+    result.score_total += bonus
+    result.nivel_riesgo = nivelFromScore(result.score_total)
+    result.flags.push(`ANOMALIA_ESTADISTICA(${anomalyScore.toFixed(2)})`)
+
+    db.prepare(`UPDATE scores SET score_total = ?, nivel_riesgo = ?, flags = ? WHERE nit = ?`)
+      .run(result.score_total, result.nivel_riesgo, JSON.stringify(result.flags), result.nit)
+  }
 }
 
 export async function scoreNit(nit: string): Promise<ScoreResult> {
@@ -150,6 +194,16 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
     flags.push(`BAJA_EJECUCION(${lowExecCount})`)
   }
 
+  // Flag ML: incorporate anomaly score if available from a prior batch run
+  const anomalyRow = db.query<{ anomaly_score: number }, [string]>(
+    `SELECT anomaly_score FROM anomaly_scores WHERE nit = ?`
+  ).get(nit)
+  if (anomalyRow && anomalyRow.anomaly_score < -0.05) {
+    const mlPts = Math.round((-anomalyRow.anomaly_score - 0.05) / 0.45 * 30)
+    score += Math.min(mlPts, 30)
+    flags.push(`ANOMALIA_ESTADISTICA(${anomalyRow.anomaly_score.toFixed(2)})`)
+  }
+
   const nivel_riesgo = nivelFromScore(score)
   const nombre = contracts[0].proveedor_adjudicado ?? 'Desconocido'
 
@@ -191,5 +245,10 @@ export async function scoreSectorBatch(sector: string, limit = 30): Promise<Scor
       results.push(r)
     }
   }
+
+  // Run Isolation Forest on the batch, then apply ML scores to results and SQLite
+  await runAnomalyDetection(sector)
+  applyMlScores(sector, results)
+
   return results.sort((a, b) => b.score_total - a.score_total)
 }
