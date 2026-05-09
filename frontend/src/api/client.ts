@@ -42,3 +42,48 @@ export const archivosApi = {
   metadata: (): Promise<ArchivosMetadata> => fetchData('/archivos/metadata'),
   list: (p: Record<string, string>) => fetchData('/archivos/list', p),
 }
+
+export interface ScoreResult {
+  nit: string
+  nombre: string
+  score_total: number
+  nivel_riesgo: 'ROJO' | 'AMARILLO' | 'VERDE'
+  flags: string[]
+  sector: string | null
+  sancionado_paco: boolean
+}
+
+export interface AlertasResponse {
+  total: number
+  scores: ScoreResult[]
+  cached: boolean
+  sector: string
+  nivel: string | null
+  generated_at: string
+}
+
+export interface ContratoSummary {
+  contrato_id: string
+  entidad: string | null
+  valor: number | null
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  estado: string | null
+  sector: string | null
+}
+
+export interface ContratistaResponse extends ScoreResult {
+  contratos: ContratoSummary[]
+  cached: boolean
+  calculado_at: string
+}
+
+export const alertasApi = {
+  get: (p: { sector?: string; nivel?: string; limit?: string; refresh?: string }): Promise<AlertasResponse> =>
+    fetchData('/alertas', p as Record<string, string>),
+}
+
+export const contratistaApi = {
+  get: (nit: string, refresh = false): Promise<ContratistaResponse> =>
+    fetchData(`/contratista/${encodeURIComponent(nit)}`, refresh ? { refresh: '1' } : {}),
+}
