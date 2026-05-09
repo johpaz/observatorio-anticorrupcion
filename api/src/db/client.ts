@@ -33,5 +33,13 @@ export function initDb(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_scores_nivel  ON scores(nivel_riesgo);
     CREATE INDEX IF NOT EXISTS idx_scores_sector ON scores(sector);
+
+    CREATE TABLE IF NOT EXISTS anomaly_scores (
+      nit           TEXT PRIMARY KEY,
+      sector        TEXT,
+      anomaly_score REAL,
+      features      TEXT,
+      calculado_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    );
   `)
 }
