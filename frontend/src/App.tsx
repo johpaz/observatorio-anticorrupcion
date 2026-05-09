@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ContratosPage from './pages/ContratosPage'
 import ArchivosPage from './pages/ArchivosPage'
+import AlertasPage from './pages/AlertasPage'
+import ContratistasPage from './pages/ContratistasPage'
 import LoadingScreen from './components/LoadingScreen'
 
 export default function App() {
@@ -18,6 +20,9 @@ export default function App() {
             <Route index element={<Navigate to="/contratos" replace />} />
             <Route path="contratos" element={<ContratosPage />} />
             <Route path="archivos" element={<ArchivosPage />} />
+            <Route path="alertas" element={<AlertasPage />} />
+            <Route path="contratistas" element={<ContratistasPage />} />
+            <Route path="contratistas/:nit" element={<ContratistasPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
