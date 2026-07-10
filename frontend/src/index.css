@@ -2,57 +2,229 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
+/* ─── Design System Variables ─────────────────────────────────── */
+:root {
+  --ink:    #15171a;
+  --ink-2:  #2a2d33;
+  --ink-3:  #4a4e57;
+  --ink-4:  #7a7e87;
+  --rule:   #ddd6c4;
+  --paper:  #f8f5ee;
+  --paper-2:#f1ede3;
+  --card:   #fefcf6;
+  --accent: #a83423;
+  --gold:   #c39443;
+  --forest: #2e6a52;
+  --indigo: #3a4f8a;
+
+  --font-sans:  'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: 'IBM Plex Serif', Georgia, serif;
+  --font-mono:  'IBM Plex Mono', 'Fira Mono', monospace;
 }
+
+/* ─── Base ─────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  background-color: #f1f5f9;
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ─── Typography helpers ────────────────────────────────────────── */
+.serif {
+  font-family: var(--font-serif);
 }
-::-webkit-scrollbar-track {
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.smcaps {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* ─── Card ──────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────── */
+.btn-ghost {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
   background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
 }
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+.btn-ghost:hover {
+  background: var(--paper-2);
+  border-color: #c8c0ae;
 }
 
+.btn-accent {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 6px 16px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: opacity 0.12s;
+}
+.btn-accent:hover { opacity: 0.88; }
+
+/* ─── Form fields ───────────────────────────────────────────────── */
+.field {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 7px 11px;
+  outline: none;
+  transition: border-color 0.12s;
+  width: 100%;
+}
+.field::placeholder { color: var(--ink-4); }
+.field:focus { border-color: var(--ink-3); }
+
+/* ─── Table ─────────────────────────────────────────────────────── */
+.dl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.dl thead tr {
+  background: var(--paper-2);
+}
+.dl th {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+}
+.dl td {
+  padding: 9px 12px;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--rule);
+}
+.dl tbody tr:hover { background: var(--paper-2); }
+.dl tbody tr:last-child td { border-bottom: none; }
+
+/* ─── Progress bar ──────────────────────────────────────────────── */
+.pbar {
+  height: 4px;
+  background: var(--paper-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.pbar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  font-style: normal;
+  transition: width 0.4s ease;
+}
+
+/* ─── Chips ─────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+}
+.chip .x {
+  cursor: pointer;
+  color: var(--ink-4);
+  font-size: 13px;
+  line-height: 1;
+}
+.chip .x:hover { color: var(--accent); }
+
+/* ─── Tabs ──────────────────────────────────────────────────────── */
+.tab {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-4);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink-2); }
+.tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* ─── Rise animation ────────────────────────────────────────────── */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rise {
+  animation: rise 0.28s ease both;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+
+/* ─── Loading screen animations (unchanged) ─────────────────────── */
 @keyframes glow-pulse {
-  0%, 100% {
-    filter: drop-shadow(0 0 10px #00ff41) drop-shadow(0 0 22px #00ff4180);
-  }
-  50% {
-    filter: drop-shadow(0 0 22px #00ff41) drop-shadow(0 0 45px #00ff41) drop-shadow(0 0 70px #00ff4150);
-  }
+  0%, 100% { filter: drop-shadow(0 0 10px #00ff41) drop-shadow(0 0 22px #00ff4180); }
+  50%       { filter: drop-shadow(0 0 22px #00ff41) drop-shadow(0 0 45px #00ff41) drop-shadow(0 0 70px #00ff4150); }
 }
-
 @keyframes bar-fill {
   from { width: 0%; }
   to   { width: 100%; }
 }
-
 @keyframes bar-shine {
   0%   { background-position: -200% center; }
   100% { background-position: 200% center; }
 }
-
-.logo-glow {
-  animation: glow-pulse 1.8s ease-in-out infinite;
-}
-
+.logo-glow { animation: glow-pulse 1.8s ease-in-out infinite; }
 .loading-bar {
   animation: bar-fill 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   background: linear-gradient(90deg, #00cc33, #00ff41, #00cc33);
   background-size: 200% auto;
 }
-
 .loading-bar-shine {
   animation: bar-fill 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards,
              bar-shine 1.2s linear infinite;

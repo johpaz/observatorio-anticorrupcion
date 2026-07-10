@@ -42,4 +42,40 @@ export function initDb(): void {
       calculado_at  INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `)
+
+  // FTS5 virtual tables for full-text search (content tables rebuild on startup)
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS scores_fts USING fts5(
+      nit, nombre, sector,
+      content='scores', content_rowid='rowid'
+    );
+    CREATE TRIGGER IF NOT EXISTS scores_fts_ai AFTER INSERT ON scores BEGIN
+      INSERT INTO scores_fts(rowid, nit, nombre, sector)
+      VALUES (new.rowid, new.nit, new.nombre, new.sector);
+    END;
+    CREATE TRIGGER IF NOT EXISTS scores_fts_au AFTER UPDATE ON scores BEGIN
+      INSERT INTO scores_fts(scores_fts, rowid, nit, nombre, sector)
+      VALUES ('delete', old.rowid, old.nit, old.nombre, old.sector);
+      INSERT INTO scores_fts(rowid, nit, nombre, sector)
+      VALUES (new.rowid, new.nit, new.nombre, new.sector);
+    END;
+    CREATE VIRTUAL TABLE IF NOT EXISTS contratos_fts USING fts5(
+      nit, nombre_proveedor, entidad, objeto_contrato, sector,
+      content='contratos_cache', content_rowid='rowid'
+    );
+    CREATE TRIGGER IF NOT EXISTS contratos_fts_ai AFTER INSERT ON contratos_cache BEGIN
+      INSERT INTO contratos_fts(rowid, nit, nombre_proveedor, entidad, objeto_contrato, sector)
+      VALUES (new.rowid, new.nit,
+              json_extract(new.raw_json, '$.proveedor_adjudicado'),
+              new.entidad,
+              json_extract(new.raw_json, '$.objeto_del_contrato'),
+              new.sector);
+    END;
+  `)
+
+  // Rebuild FTS5 indexes from existing data (idempotent)
+  try {
+    db.exec(`INSERT INTO scores_fts(scores_fts) VALUES('rebuild')`)
+    db.exec(`INSERT INTO contratos_fts(contratos_fts) VALUES('rebuild')`)
+  } catch { /* tables may not support rebuild if no content rows */ }
 }

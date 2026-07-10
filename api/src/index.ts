@@ -4,6 +4,7 @@ import { contratosRoutes } from './routes/contratos'
 import { archivosRoutes } from './routes/archivos'
 import { alertasRoutes } from './routes/alertas'
 import { contratistaRoutes } from './routes/contratista'
+import { chatRoutes } from './routes/chat'
 import { initDb } from './db/client'
 
 initDb()
@@ -17,6 +18,7 @@ new Elysia()
   .use(archivosRoutes)
   .use(alertasRoutes)
   .use(contratistaRoutes)
+  .use(chatRoutes)
   .listen(PORT, () => {
     console.log(`SECOP API running on port ${PORT}`)
   })
