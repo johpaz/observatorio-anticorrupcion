@@ -1,6 +1,7 @@
 import { join } from 'path'
 import { socrataQuery } from './socrata'
 import { db } from '../db/client'
+import { checkSanciones } from './procuraduria'
 
 const SCORE_TTL_SEC = 3600
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000
@@ -194,6 +195,27 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
     flags.push(`BAJA_EJECUCION(${lowExecCount})`)
   }
 
+  // Flag F: Sanciones Procuraduría / CGR / SECOP
+  let sancionado = false
+  const sanciones = await checkSanciones(nit)
+  if (sanciones) {
+    if (sanciones.tiene_antecedentes_disciplinarios) {
+      score += 30
+      flags.push('SANCIONADO_DISCIPLINARIO')
+      sancionado = true
+    }
+    if (sanciones.tiene_antecedentes_fiscales) {
+      score += 25
+      flags.push('RESPONSABILIDAD_FISCAL')
+      sancionado = true
+    }
+    if (sanciones.tiene_multas_secop) {
+      score += 15
+      flags.push('MULTA_SECOP')
+      sancionado = true
+    }
+  }
+
   // Flag ML: incorporate anomaly score if available from a prior batch run
   const anomalyRow = db.query<{ anomaly_score: number }, [string]>(
     `SELECT anomaly_score FROM anomaly_scores WHERE nit = ?`
@@ -216,7 +238,7 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
   db.prepare(`INSERT OR REPLACE INTO scores (nit, nombre, score_total, nivel_riesgo, flags, sector) VALUES (?, ?, ?, ?, ?, ?)`)
     .run(nit, nombre, score, nivel_riesgo, JSON.stringify(flags), sector)
 
-  return { nit, nombre, score_total: score, nivel_riesgo, flags, sector, sancionado_paco: false }
+  return { nit, nombre, score_total: score, nivel_riesgo, flags, sector, sancionado_paco: sancionado }
 }
 
 export async function scoreSectorBatch(sector: string, limit = 30): Promise<ScoreResult[]> {

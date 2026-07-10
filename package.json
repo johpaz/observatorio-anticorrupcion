@@ -6,8 +6,8 @@
     "dev": "bun dev.ts",
     "build": "bun --cwd frontend run build",
     "start": "docker compose up --build",
-    "docker:build": "docker build -t johpaz/secop-api:latest ./api && docker build -t johpaz/secop-frontend:latest ./frontend",
-    "docker:push": "docker push johpaz/secop-api:latest && docker push johpaz/secop-frontend:latest",
+    "docker:build": "docker compose build --parallel",
+    "docker:push": "docker compose push",
     "docker:release": "bun run docker:build && bun run docker:push"
   }
 }

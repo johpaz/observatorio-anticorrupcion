@@ -1,0 +1,11 @@
+{
+  "name": "@johpaz/hive-agents-mcp",
+  "version": "0.0.32",
+  "type": "module",
+  "private": true,
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  }
+}

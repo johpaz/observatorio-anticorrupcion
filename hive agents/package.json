@@ -3,6 +3,7 @@
   "version": "0.0.32",
   "type": "module",
   "private": true,
+  "workspaces": ["packages/*"],
   "description": "Hive Gateway — Personal AI agent runtime",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
