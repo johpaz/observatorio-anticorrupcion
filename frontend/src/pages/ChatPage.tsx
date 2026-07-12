@@ -16,26 +16,27 @@ const SUGERENCIAS = [
 function ToolCallBadge({ call }: { call: { tool: string; result: any } }) {
   const [open, setOpen] = useState(false)
   return (
-    <div style={{ marginTop: 8, borderRadius: 4, border: '1px solid var(--rule)', overflow: 'hidden' }}>
+    <div style={{ marginTop: 8, borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', textAlign: 'left', background: 'var(--paper-2)',
-          border: 'none', padding: '7px 12px', cursor: 'pointer',
+          width: '100%', textAlign: 'left', background: '#f8fafc',
+          border: 'none', padding: '10px 14px', cursor: 'pointer',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}
       >
-        <span className="num" style={{ fontSize: 11, color: 'var(--indigo)' }}>
-          ⚙ herramienta: {call.tool}
+        <span className="num" style={{ fontSize: 11, color: '#004884', fontWeight: 600 }}>
+          ⚙️ herramienta utilizada: {call.tool}
         </span>
-        <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>{open ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 10, color: '#64748b' }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
         <pre style={{
-          margin: 0, padding: '10px 12px',
-          fontSize: 10.5, fontFamily: 'var(--font-mono)',
-          background: 'var(--card)', color: 'var(--ink-3)',
+          margin: 0, padding: '12px 14px',
+          fontSize: 11, fontFamily: 'var(--font-mono)',
+          background: '#f1f5f9', color: '#334155',
           overflowX: 'auto', maxHeight: 240,
+          borderTop: '1px solid #e2e8f0'
         }}>
           {JSON.stringify(call.result, null, 2)}
         </pre>
@@ -48,27 +49,31 @@ function Bubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user'
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column',
+      display: 'flex',
+      flexDirection: 'column',
       alignItems: isUser ? 'flex-end' : 'flex-start',
-      gap: 6, maxWidth: '100%',
-    }}>
-      <div className="smcaps" style={{ color: 'var(--ink-4)', paddingLeft: isUser ? 0 : 2 }}>
-        {isUser ? 'tú' : 'agente secop ii'}
+      gap: 6,
+      maxWidth: '100%',
+    }} className="animate-[rise_0.25s_ease-out_both]">
+      <div className="smcaps text-[10px]" style={{ color: 'var(--ink-3)', paddingLeft: isUser ? 0 : 4 }}>
+        {isUser ? 'Tú' : 'Agente Inteligente SECOP II'}
       </div>
       <div style={{
-        maxWidth: '80%',
-        background: isUser ? 'var(--ink)' : 'var(--card)',
-        color: isUser ? 'var(--paper)' : 'var(--ink)',
-        border: isUser ? 'none' : '1px solid var(--rule)',
-        borderRadius: 4,
-        padding: '10px 14px',
-        fontSize: 13.5, lineHeight: 1.65,
+        maxWidth: '85%',
+        background: isUser ? 'linear-gradient(135deg, #004884, #002f56)' : '#ffffff',
+        color: isUser ? '#ffffff' : '#2d3748',
+        border: isUser ? 'none' : '1px solid #e2e8f0',
+        borderRadius: 12,
+        padding: '12px 16px',
+        fontSize: 13.5,
+        lineHeight: 1.6,
         whiteSpace: 'pre-wrap',
+        boxShadow: isUser ? '0 4px 14px rgba(0, 72, 132, 0.15)' : '0 4px 20px rgba(0, 72, 132, 0.03)',
       }}>
         {msg.content}
       </div>
       {msg.toolCalls && msg.toolCalls.length > 0 && (
-        <div style={{ maxWidth: '80%', width: '100%' }}>
+        <div style={{ maxWidth: '85%', width: '100%' }}>
           {msg.toolCalls.map((tc, i) => <ToolCallBadge key={i} call={tc} />)}
         </div>
       )}
@@ -108,7 +113,7 @@ export default function ChatPage() {
     } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Error al conectar con el agente. Verifique que la API esté activa.',
+        content: 'Error al conectar con el agente. Verifique que la API esté activa y respondiendo.',
       }])
     } finally {
       setLoading(false)
@@ -116,40 +121,28 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="rise" style={{
-      height: '100%', display: 'flex', flexDirection: 'column',
-      padding: '28px 40px 0',
-    }}>
+    <div className="rise flex flex-col h-full p-8 pb-0 text-slate-800 bg-[var(--bg-main)]">
 
       {/* Header */}
-      <div style={{ marginBottom: 24, flexShrink: 0 }}>
-        <div className="smcaps">SECOP II · AGENTE IA</div>
-        <h1 className="serif" style={{
-          margin: '6px 0 4px', fontSize: 28, fontWeight: 600,
-          letterSpacing: -0.5, color: 'var(--ink)',
-        }}>
-          Chat con los Datos
+      <div className="mb-6 shrink-0">
+        <div className="smcaps text-[#004884] font-bold">SECOP II · AGENTE IA</div>
+        <h1 className="serif text-2xl font-bold tracking-tight text-[#004884] mt-1">
+          Chat de Consulta Analítica
         </h1>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-4)' }}>
-          Consulta scores de riesgo, contratistas y sanciones en lenguaje natural.
+        <p className="text-sm text-slate-650 mt-1">
+          Consulta scores de riesgo, contratistas, sanciones y obras inconclusas en lenguaje natural.
           Respaldado por SQLite FTS5 + Procuraduría API.
         </p>
       </div>
 
-      {/* Conversation */}
-      <div style={{
-        flex: 1, overflowY: 'auto', display: 'flex',
-        flexDirection: 'column', gap: 20,
-        paddingBottom: 24, minHeight: 0,
-      }}>
-
+      {/* Conversation Area */}
+      <div className="flex-1 overflow-y-auto flex flex-col gap-6 pb-6 pr-2">
         {messages.length === 0 && (
-          <div style={{ marginTop: 8 }}>
-            <div className="smcaps" style={{ marginBottom: 12 }}>Sugerencias</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="mt-2 space-y-4">
+            <div className="smcaps text-slate-500 font-bold">Preguntas sugeridas</div>
+            <div className="flex flex-col gap-3">
               {SUGERENCIAS.map(s => (
-                <button key={s} className="btn-ghost" onClick={() => send(s)}
-                  style={{ textAlign: 'left', padding: '9px 14px', fontSize: 13 }}>
+                <button key={s} className="btn-ghost text-left shadow-sm" onClick={() => send(s)} style={{ display: 'block', width: '100%' }}>
                   {s}
                 </button>
               ))}
@@ -160,14 +153,14 @@ export default function ChatPage() {
         {messages.map((m, i) => <Bubble key={i} msg={m} />)}
 
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="smcaps" style={{ color: 'var(--ink-4)' }}>agente secop ii</div>
-            <div style={{ display: 'flex', gap: 4 }}>
+          <div className="flex items-center gap-3 animate-pulse">
+            <div className="smcaps text-[10px] text-slate-500 font-bold">Agente Inteligente</div>
+            <div className="flex gap-1.5 items-center">
               {[0, 1, 2].map(i => (
                 <span key={i} style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: 'var(--ink-4)',
-                  animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: 'var(--accent)',
+                  animation: `pulse-chat 1.2s ease-in-out ${i * 0.2}s infinite`,
                 }} />
               ))}
             </div>
@@ -177,31 +170,29 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div style={{
-        flexShrink: 0, borderTop: '1px solid var(--rule)',
-        padding: '16px 0 24px',
-        display: 'flex', gap: 10,
-      }}>
+      {/* Input Area */}
+      <div className="shrink-0 border-t border-slate-200 py-6 flex gap-3">
         <input
-          className="field"
+          className="field shadow-sm"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-          placeholder="Pregunta sobre contratistas, sectores o riesgo…"
+          placeholder="Pregunta sobre contratistas, sectores, scores de riesgo, sanciones..."
           disabled={loading}
           style={{ flex: 1 }}
         />
-        <button className="btn-accent" onClick={() => send()} disabled={loading || !input.trim()}
-          style={{ padding: '7px 20px', flexShrink: 0, opacity: loading || !input.trim() ? 0.5 : 1 }}>
-          Enviar
+        <button className="btn-accent" onClick={() => send()} disabled={loading || !input.trim()}>
+          <span>Enviar</span>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
         </button>
       </div>
 
       <style>{`
-        @keyframes pulse {
+        @keyframes pulse-chat {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
-          50%       { opacity: 1;   transform: scale(1.2); }
+          50%       { opacity: 1;   transform: scale(1.25); filter: drop-shadow(0 0 4px #004884); }
         }
       `}</style>
     </div>

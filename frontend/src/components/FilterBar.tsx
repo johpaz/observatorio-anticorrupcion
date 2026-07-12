@@ -20,21 +20,21 @@ export default function FilterBar({ filters, filterConfig, onChange, onClear }: 
   const hasActive = Object.values(filters).some(v => v !== '')
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-      <div className="flex flex-wrap gap-3 items-end">
+    <div className="card p-5">
+      <div className="flex flex-wrap gap-4 items-end">
         {filterConfig.map(({ key, label, options }) => (
-          <div key={key} className="flex flex-col gap-1 min-w-[130px]">
-            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+          <div key={key} className="flex flex-col gap-1.5 min-w-[140px]">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider serif">
               {label}
             </label>
             <select
               value={filters[key] ?? ''}
               onChange={e => onChange(key, e.target.value)}
-              className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+              className="text-sm border border-slate-200 rounded-lg px-3.5 py-2.5 bg-white text-slate-800 focus:outline-none focus:border-[#004884] focus:ring-1 focus:ring-[#004884]/20 cursor-pointer transition-all shadow-sm"
             >
-              <option value="">Todos</option>
+              <option value="" className="bg-white">Todos</option>
               {options.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value} className="bg-white">{opt.label}</option>
               ))}
             </select>
           </div>
@@ -43,7 +43,7 @@ export default function FilterBar({ filters, filterConfig, onChange, onClear }: 
         {hasActive && (
           <button
             onClick={onClear}
-            className="text-xs px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors self-end"
+            className="text-xs px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all self-end shadow-sm"
           >
             Limpiar filtros
           </button>

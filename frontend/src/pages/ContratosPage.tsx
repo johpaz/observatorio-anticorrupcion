@@ -72,7 +72,7 @@ export default function ContratosPage() {
   }
 
   const filterConfig = [
-    { key: 'year', label: 'Ano', options: (metadata?.years ?? []).map(y => ({ value: String(y), label: String(y) })) },
+    { key: 'year', label: 'Año', options: (metadata?.years ?? []).map(y => ({ value: String(y), label: String(y) })) },
     { key: 'quarter', label: 'Trimestre', options: [
       { value: '1', label: 'Q1 Ene-Mar' }, { value: '2', label: 'Q2 Abr-Jun' },
       { value: '3', label: 'Q3 Jul-Sep' }, { value: '4', label: 'Q4 Oct-Dic' },
@@ -112,15 +112,15 @@ export default function ContratosPage() {
   }))
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-8 space-y-6 rise text-slate-800 bg-[var(--bg-main)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Contratos Electronicos SECOP II</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Contratos adjudicados — datos.gov.co</p>
+          <h1 className="serif text-2xl font-bold tracking-tight text-[#004884]">Contratos Electrónicos SECOP II</h1>
+          <p className="text-sm text-slate-600 mt-1 font-medium">Contratos adjudicados y registrados en la plataforma oficial datos.gov.co</p>
         </div>
         {loading && (
-          <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-full animate-pulse shrink-0">
-            Actualizando...
+          <span className="text-xs bg-[#004884]/15 text-[#004884] border border-[#004884]/20 px-3.5 py-1.5 rounded-full animate-pulse shrink-0 font-semibold shadow-sm">
+            Actualizando datos...
           </span>
         )}
       </div>
@@ -132,47 +132,47 @@ export default function ContratosPage() {
         onClear={() => setFilters(CONTRATOS_INITIAL)}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <KPICard title="Total Contratos" value={formatNumber(Number(data.kpis?.total ?? 0))} color="blue" />
-        <KPICard title="Valor Total" value={formatCOP(Number(data.kpis?.valor_total ?? 0))} color="green" />
+        <KPICard title="Valor Total Adjudicado" value={formatCOP(Number(data.kpis?.valor_total ?? 0))} color="green" />
         <KPICard title="Valor Promedio" value={formatCOP(Number(data.kpis?.valor_promedio ?? 0))} color="amber" />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-700 mb-4">Evolucion Mensual</h2>
+      <div className="card p-5 border border-slate-200">
+        <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Evolución Mensual del Gasto</h2>
         <LineChartComponent
           data={mesData} xKey="name" dualAxis
           lines={[
-            { key: 'contratos', name: 'Contratos', color: '#3b82f6' },
-            { key: 'valor', name: 'Valor (M COP)', color: '#10b981', yAxisId: 'right' },
+            { key: 'contratos', name: 'Contratos', color: '#004884' },
+            { key: 'valor', name: 'Valor (M COP)', color: '#137752', yAxisId: 'right' },
           ]}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Top Sectores por Valor</h2>
-          <BarChartComponent data={sectorData} xKey="name" bars={[{ key: 'valor', name: 'Valor COP', color: '#3b82f6' }]} horizontal />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="card p-5 border border-slate-200">
+          <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Top Sectores por Monto</h2>
+          <BarChartComponent data={sectorData} xKey="name" bars={[{ key: 'valor', name: 'Valor COP', color: '#004884' }]} horizontal />
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Tipos de Contrato</h2>
+        <div className="card p-5 border border-slate-200">
+          <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Tipos de Contrato</h2>
           <PieChartComponent data={tipoData} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Top Departamentos por Valor</h2>
-          <BarChartComponent data={deptoData} xKey="name" bars={[{ key: 'valor', name: 'Valor COP', color: '#8b5cf6' }]} horizontal />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="card p-5 border border-slate-200">
+          <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Distribución por Departamento</h2>
+          <BarChartComponent data={deptoData} xKey="name" bars={[{ key: 'valor', name: 'Valor COP', color: '#c69400' }]} horizontal />
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Estado de Contratos</h2>
+        <div className="card p-5 border border-slate-200">
+          <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Estado Actual de Procesos</h2>
           <PieChartComponent data={estadoData} />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-700 mb-4">Lista de Contratos</h2>
+      <div className="card p-5 border border-slate-200">
+        <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Lista de Contratos Filtrados</h2>
         <DataTable data={data.list} columns={TABLE_COLS} page={page} onPageChange={setPage} loading={loading} />
       </div>
     </div>

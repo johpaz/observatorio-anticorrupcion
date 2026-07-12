@@ -1,7 +1,7 @@
 {
   "name": "secop-dashboard",
   "version": "1.0.0",
-  "workspaces": ["api", "frontend"],
+  "workspaces": ["api", "frontend", "APi Procuraduria, multas, sanciones y obras inconclusas"],
   "scripts": {
     "dev": "bun dev.ts",
     "build": "bun --cwd frontend run build",
