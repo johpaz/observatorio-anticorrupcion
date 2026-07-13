@@ -4,3 +4,8 @@ dist/
 bun.lock
 *.lockb
 .venv/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
