@@ -7,8 +7,10 @@ import PieChartComponent from '../components/charts/PieChartComponent'
 import { archivosApi } from '../api/client'
 import { formatBytes, formatNumber, formatDate } from '../utils/formatters'
 import { useArchivosStore, ARCHIVOS_INITIAL, cacheKey } from '../store/useArchivosStore'
+import { useSeo } from '../utils/useSeo'
 
 export default function ArchivosPage() {
+  useSeo('Datos Abiertos SECOP II', 'Archivos y datasets de contratación pública colombiana publicados en datos.gov.co: descargas, tamaños y actualizaciones de SECOP II.')
   const {
     metadata, metadataLoaded,
     filters, page, loading, data,

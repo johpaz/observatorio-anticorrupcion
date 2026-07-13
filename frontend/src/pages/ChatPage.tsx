@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSeo } from '../utils/useSeo'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -82,6 +83,7 @@ function Bubble({ msg }: { msg: Message }) {
 }
 
 export default function ChatPage() {
+  useSeo('Agente IA de Transparencia', 'Consulta con inteligencia artificial los antecedentes de contratistas, sanciones y riesgos en la contratación pública colombiana.')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)

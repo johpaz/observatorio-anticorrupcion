@@ -51,13 +51,35 @@ export const contratosRoutes = new Elysia({ prefix: '/api/contratos' })
   .onError(({ error, set }) => { set.status = 500; return { error: String(error) } })
 
   .get('/kpis', async ({ query }) => {
-    const params: Record<string, string> = {
-      '$select': 'count(*) as total, sum(valor_del_contrato) as valor_total, avg(valor_del_contrato) as valor_promedio',
-    }
     const where = buildWhere(query)
-    if (where) params['$where'] = where
-    const data = await socrataQuery('contratos', params) as any[]
-    return data[0] ?? {}
+
+    if (where) {
+      const params: Record<string, string> = {
+        '$select': 'count(*) as total, sum(valor_del_contrato) as valor_total, avg(valor_del_contrato) as valor_promedio',
+        '$where': where,
+      }
+      const data = await socrataQuery('contratos', params) as any[]
+      return data[0] ?? {}
+    }
+
+    // Sin filtros, count(*) plano sobre todo el dataset excede el timeout de Socrata;
+    // el conteo agrupado por año y la suma directa sí responden (~6s, luego cacheado).
+    const [porAnio, sumRow] = await Promise.all([
+      socrataQuery('contratos', {
+        '$select': 'date_extract_y(fecha_de_firma) as anio, count(*) as total',
+        '$group': 'anio',
+        '$limit': '50',
+      }),
+      socrataQuery('contratos', { '$select': 'sum(valor_del_contrato) as valor_total' }),
+    ]) as [any[], any[]]
+
+    const total = porAnio.reduce((acc, r) => acc + Number(r.total ?? 0), 0)
+    const valor_total = Number(sumRow[0]?.valor_total ?? 0)
+    return {
+      total: String(total),
+      valor_total: String(valor_total),
+      valor_promedio: total > 0 ? String(valor_total / total) : '0',
+    }
   }, { query: t.Object(baseQuery) })
 
   .get('/por-sector', async ({ query }) => {

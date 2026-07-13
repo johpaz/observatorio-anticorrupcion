@@ -1,6 +1,6 @@
 /**
- * Tools Registry - Exports all 66 tools
- * 
+ * Tools registry for the active tool groups.
+ *
  * Import this to get all tools:
  * import { createAllTools } from "./tools";
  */
@@ -20,20 +20,8 @@ import * as projects from "./projects/index.ts";
 // Cron (7) - Croner-based scheduler tools
 import * as cron from "./cron/index.ts";
 
-// CLI (1)
-import * as cli from "./cli/index.ts";
-
 // Agents (14)
 import * as agents from "./agents/index.ts";
-
-// Canvas (7)
-import * as canvas from "./canvas/index.ts";
-
-// Codebridge (3)
-import * as codebridge from "./codebridge/index.ts";
-
-// Voice (2)
-import * as voice from "./voice/index.ts";
 
 // Core (4)
 import * as core from "./core/index.ts";
@@ -45,7 +33,7 @@ import * as office from "./office/index.ts";
 import * as meeting from "./meeting/index.ts";
 
 /**
- * Creates all 70 tools with proper configuration
+ * Creates all registered tools with proper configuration
  */
 export function createAllTools(config: Config): Tool[] {
   return [
@@ -61,20 +49,8 @@ export function createAllTools(config: Config): Tool[] {
     // CRON (7)
     ...cron.createTools(),
 
-    // CLI (1)
-    ...cli.createTools(),
-
     // AGENTS (14)
     ...agents.createTools(),
-
-    // CANVAS (7 + A2UI 4)
-    ...canvas.createTools(config),
-
-    // CODEBRIDGE (3)
-    ...codebridge.createTools(),
-
-    // VOICE (2)
-    ...voice.createTools(),
 
     // CORE (4)
     ...core.createTools(),
@@ -90,7 +66,7 @@ export function createAllTools(config: Config): Tool[] {
 /**
  * Creates tools by category (for selective loading)
  */
-export function createToolsByCategory(category: string, config: Config): Tool[] {
+export function createToolsByCategory(category: string, _config: Config): Tool[] {
   switch (category) {
     case "filesystem":
       return filesystem.createTools();
@@ -100,16 +76,8 @@ export function createToolsByCategory(category: string, config: Config): Tool[] 
       return projects.createTools();
     case "cron":
       return cron.createTools();
-    case "cli":
-      return cli.createTools();
     case "agents":
       return agents.createTools();
-    case "canvas":
-      return canvas.createTools(config);
-    case "codebridge":
-      return codebridge.createTools();
-    case "voice":
-      return voice.createTools();
     case "core":
       return core.createTools();
     case "office":
@@ -172,8 +140,6 @@ export {
   resolveBestChannel,
 } from "./cron/index.ts";
 
-export { cliExecTool } from "./cli/index.ts";
-
 export {
   memoryWriteTool,
   memoryReadTool,
@@ -190,27 +156,6 @@ export {
   busReadTool,
   projectUpdatesTool,
 } from "./agents/index.ts";
-
-export {
-  canvasRenderTool,
-  canvasAskTool,
-  canvasConfirmTool,
-  canvasShowCardTool,
-  canvasShowProgressTool,
-  canvasShowListTool,
-  canvasClearTool,
-} from "./canvas/index.ts";
-
-export {
-  codebridgeLaunchTool,
-  codebridgeStatusTool,
-  codebridgeCancelTool,
-} from "./codebridge/index.ts";
-
-export {
-  voiceTranscribeTool,
-  voiceSpeakTool,
-} from "./voice/index.ts";
 
 export {
   searchKnowledgeTool,

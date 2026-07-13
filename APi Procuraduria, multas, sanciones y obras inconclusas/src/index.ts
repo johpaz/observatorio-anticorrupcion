@@ -58,7 +58,7 @@ const app = new Elysia()
   .use(multasRoutes)
   .use(obrasRoutes)
   .use(searchRoutes)
-  .listen(3000);
+  .listen(Number(Bun.env.PORT ?? 3000));
 
-console.log(`API corriendo en http://localhost:3000`);
-console.log(`Swagger:         http://localhost:3000/swagger`);
+console.log(`API corriendo en http://localhost:${Bun.env.PORT ?? 3000}`);
+console.log(`Swagger:         http://localhost:${Bun.env.PORT ?? 3000}/swagger`);

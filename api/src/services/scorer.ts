@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { socrataQuery } from './socrata'
-import { db } from '../db/client'
+import { db, DB_PATH } from '../db/client'
 import { checkSanciones } from './procuraduria'
 
 const SCORE_TTL_SEC = 3600
@@ -37,6 +37,12 @@ function nivelFromScore(score: number): 'ROJO' | 'AMARILLO' | 'VERDE' {
   return 'VERDE'
 }
 
+const SANCTION_FLAGS = ['SANCIONADO_DISCIPLINARIO', 'RESPONSABILIDAD_FISCAL', 'MULTA_SECOP']
+
+export function hasSanctionFlag(flags: string[]): boolean {
+  return flags.some(f => SANCTION_FLAGS.includes(f))
+}
+
 function normalizeStr(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
@@ -44,7 +50,7 @@ function normalizeStr(s: string): string {
 async function fetchContracts(nit: string): Promise<SecopRecord[]> {
   const safe = nit.replace(/'/g, "''")
   return socrataQuery('contratos', {
-    '$select': 'documento_proveedor,proveedor_adjudicado,nombre_entidad,valor_del_contrato,valor_facturado,fecha_de_fin_del_contrato,fecha_de_inicio_del_contrato,estado_contrato,sector,objeto_del_contrato,id_contrato,dias_adicionados',
+    '$select': 'documento_proveedor,proveedor_adjudicado,nombre_entidad,valor_del_contrato,valor_facturado,fecha_de_fin_del_contrato,fecha_de_inicio_del_contrato,estado_contrato,sector,departamento,objeto_del_contrato,id_contrato,dias_adicionados',
     '$where': `documento_proveedor='${safe}'`,
     '$limit': '500',
     '$order': 'fecha_de_fin_del_contrato DESC',
@@ -57,8 +63,8 @@ async function runAnomalyDetection(sector: string): Promise<void> {
   const projectRoot = join(import.meta.dir, '../../..')
   try {
     const proc = Bun.spawn(
-      ['python3', scriptPath, sector],
-      { stdout: 'pipe', stderr: 'pipe', cwd: projectRoot }
+      [Bun.env.PYTHON_BIN ?? 'python3', scriptPath, sector],
+      { stdout: 'pipe', stderr: 'pipe', cwd: projectRoot, env: { ...Bun.env, DB_PATH } }
     )
     await proc.exited
     const out = await new Response(proc.stdout).text()
@@ -101,14 +107,15 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
   ).get(nit, SCORE_TTL_SEC)
 
   if (cached) {
+    const flags: string[] = JSON.parse(cached.flags)
     return {
       nit: cached.nit,
       nombre: cached.nombre ?? 'Desconocido',
       score_total: cached.score_total,
       nivel_riesgo: cached.nivel_riesgo as 'ROJO' | 'AMARILLO' | 'VERDE',
-      flags: JSON.parse(cached.flags),
+      flags,
       sector: cached.sector,
-      sancionado_paco: false,
+      sancionado_paco: hasSanctionFlag(flags),
     }
   }
 

@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite'
 import { join } from 'path'
 
-const DB_PATH = join(import.meta.dir, '../../../anticorrup.db')
+export const DB_PATH = Bun.env.ANTICORRUP_DB_PATH ?? join(import.meta.dir, '../../../anticorrup.db')
 export const db = new Database(DB_PATH, { create: true })
 
 export function initDb(): void {
@@ -40,6 +40,12 @@ export function initDb(): void {
       anomaly_score REAL,
       features      TEXT,
       calculado_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+
+    CREATE TABLE IF NOT EXISTS socrata_cache (
+      key        TEXT PRIMARY KEY,
+      data       TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `)
 

@@ -1,11 +1,14 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSeo } from '../utils/useSeo'
+import { formatCOP } from '../utils/formatters'
 
 const FLAGS = [
   { code: 'VENCIDOS_SIN_CERRAR(n)', pts: '+25 c/u · máx 75', desc: 'Contratos con estado "En ejecución" cuya fecha de fin venció hace más de 6 meses sin liquidar.' },
   { code: 'EXTENSION_MAYOR_1_ANO', pts: '+20', desc: 'Al menos un contrato acumula más de 365 días adicionales sobre su plazo original.' },
   { code: 'MULTIPLES_ADICIONES(n)', pts: '+15', desc: '3 o más contratos con extensiones de plazo (cuando no aplica la bandera anterior).' },
   { code: 'CONCENTRACION_ENTIDADES(n)', pts: '+10', desc: 'Relaciones con 5 o más entidades públicas distintas en el mismo sector.' },
-  { code: 'BAJA_EJECUCION(n)', pts: '+15', desc: 'Contratos terminados o cancelados donde el valor facturado fue < 50 % del adjudicado.' },
+  { code: 'BAJA_EJECUCION(n)', pts: '+15', desc: 'Contratos terminados o cancelados, superiores a $5M, donde el valor facturado fue < 50 % del adjudicado.' },
   { code: 'SANCIONADO_DISCIPLINARIO', pts: '+30', desc: 'El NIT figura en el registro SIRI de la Procuraduría General de la Nación.' },
   { code: 'RESPONSABILIDAD_FISCAL', pts: '+25', desc: 'El NIT tiene fallos de responsabilidad fiscal en la Contraloría General.' },
   { code: 'MULTA_SECOP', pts: '+15', desc: 'El NIT tiene multas impuestas en contratos SECOP registradas por la entidad contratante.' },
@@ -23,8 +26,42 @@ const STACK = [
   { label: 'Procuraduría API', sub: 'SIRI + CGR + Multas' },
 ]
 
+// Cifras de respaldo mientras la API responde (o si no está disponible) —
+// magnitudes reales del dataset SECOP II a julio 2026
+const HERO_FALLBACK = { valor: '$2461B', contratos: '5.68M', rojas: '1,450' }
+
+function compact(n: number): string {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
+  return n.toLocaleString('es-CO')
+}
+
 export default function LandingPage() {
+  useSeo(undefined, 'Observatorio Anticorrupción de Colombia: detección de riesgo de corrupción en contratación pública con IA. Alertas, sanciones y anomalías sobre datos abiertos de SECOP II, Procuraduría y Contraloría.')
   const navigate = useNavigate()
+  const [hero, setHero] = useState(HERO_FALLBACK)
+
+  useEffect(() => {
+    let alive = true
+    Promise.allSettled([
+      fetch('/api/contratos/kpis').then(r => (r.ok ? r.json() : Promise.reject(r.status))),
+      fetch('/api/alertas/stats').then(r => (r.ok ? r.json() : Promise.reject(r.status))),
+    ]).then(([kpis, stats]) => {
+      if (!alive) return
+      setHero(prev => ({
+        valor: kpis.status === 'fulfilled' && kpis.value.valor_total
+          ? formatCOP(kpis.value.valor_total).replace(/\s/g, '')
+          : prev.valor,
+        contratos: kpis.status === 'fulfilled' && kpis.value.total
+          ? compact(Number(kpis.value.total))
+          : prev.contratos,
+        rojas: stats.status === 'fulfilled' && Number(stats.value.rojos) > 0
+          ? Number(stats.value.rojos).toLocaleString('es-CO')
+          : prev.rojas,
+      }))
+    })
+    return () => { alive = false }
+  }, [])
 
   return (
     <div className="bg-[#F9F9F7] text-[#111827] font-sans min-h-screen antialiased flex flex-col selection:bg-[#FEC82F] selection:text-[#002D58]">
@@ -36,7 +73,7 @@ export default function LandingPage() {
         {/* Header Date/Edition */}
         <div className="flex justify-between items-center border-b border-[#002D58]/20 pb-4 mb-12 text-xs font-bold uppercase text-[#002D58]/70 tracking-widest" style={{ fontFamily: 'Montserrat, sans-serif' }}>
           <span>Edición Digital</span>
-          <span>Hackathon Colombia 5.0 — Mayo 2026</span>
+          <span>Observatorio Anticorrupción de Colombia</span>
           <span>Actualizado en Tiempo Real</span>
         </div>
 
@@ -61,7 +98,7 @@ export default function LandingPage() {
               <span className="bg-[#FEC82F] text-[#002D58] px-2 font-bold inline-block transform skew-x-[-2deg]">
                 TIEMPO REAL
               </span>{' '}
-              sobre 1.24M contratos.
+              sobre {hero.contratos} contratos.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-6 border-t border-[#002D58]/10 mt-8">
@@ -97,18 +134,18 @@ export default function LandingPage() {
               </div>
               <div className="grid grid-cols-1 gap-8">
                 <div>
-                  <div className="text-6xl font-black text-white tracking-tighter mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>$45.2B</div>
+                  <div className="text-6xl font-black text-white tracking-tighter mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>{hero.valor}</div>
                   <div className="text-sm font-bold text-[#FEC82F] uppercase tracking-widest" style={{ fontFamily: 'Montserrat, sans-serif' }}>COP Auditados</div>
                 </div>
                 <div className="h-px bg-white/10 w-full" />
                 <div>
-                  <div className="text-5xl font-black text-white tracking-tighter mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>1.24M</div>
+                  <div className="text-5xl font-black text-white tracking-tighter mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>{hero.contratos}</div>
                   <div className="text-sm font-bold text-white/70 uppercase tracking-widest" style={{ fontFamily: 'Montserrat, sans-serif' }}>Total Contratos</div>
                 </div>
                 <div className="h-px bg-white/10 w-full" />
                 <div className="flex justify-between items-center">
                   <div>
-                    <div className="text-3xl font-black text-[#CE1126] tracking-tighter mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>1,450</div>
+                    <div className="text-3xl font-black text-[#CE1126] tracking-tighter mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>{hero.rojas}</div>
                     <div className="text-xs font-bold text-white/50 uppercase tracking-widest" style={{ fontFamily: 'Montserrat, sans-serif' }}>Alertas Rojas</div>
                   </div>
                   <div className="text-right">
@@ -265,7 +302,7 @@ export default function LandingPage() {
                 <div className="h-1/4 bg-[#004884]"></div>
                 <div className="h-1/4 bg-[#CE1126]"></div>
               </div>
-              SECOP II OBSERVATORIO
+              OBSERVATORIO ANTICORRUPCIÓN
             </div>
             <p className="text-sm text-white/70 max-w-sm leading-relaxed font-light">
               Iniciativa independiente para la fiscalización ciudadana y el análisis de datos abiertos de contratación pública en Colombia.
@@ -279,8 +316,8 @@ export default function LandingPage() {
               <span className="text-white/60 normal-case font-normal">Contraloría General</span>
             </div>
             <div className="flex flex-col gap-4">
-              <span className="text-white/40 mb-2 border-b border-white/10 pb-2">Hackathon</span>
-              <span className="text-white/60 normal-case font-normal">Colombia 5.0 — Mayo 2026</span>
+              <span className="text-white/40 mb-2 border-b border-white/10 pb-2">Proyecto</span>
+              <span className="text-white/60 normal-case font-normal">Observatorio Anticorrupción de Colombia</span>
             </div>
           </div>
         </div>

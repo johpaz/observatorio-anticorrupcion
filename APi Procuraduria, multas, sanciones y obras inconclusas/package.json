@@ -1,11 +1,12 @@
 {
-  "name": "bases-hackaton-api",
+  "name": "observatorio-procuraduria-api",
   "version": "1.0.0",
   "module": "src/index.ts",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "seed": "bun run src/db/seed.ts"
+    "seed": "bun run src/db/seed.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "elysia": "^1.1.0",

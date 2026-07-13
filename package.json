@@ -1,10 +1,12 @@
 {
-  "name": "secop-dashboard",
+  "name": "observatorio-anticorrupcion",
   "version": "1.0.0",
   "workspaces": ["api", "frontend", "APi Procuraduria, multas, sanciones y obras inconclusas"],
   "scripts": {
     "dev": "bun dev.ts",
-    "build": "bun --cwd frontend run build",
+    "build": "bun run --cwd frontend build",
+    "test": "bun run --cwd api test && bun run --cwd \"APi Procuraduria, multas, sanciones y obras inconclusas\" test && bun run --cwd frontend test",
+    "test:e2e": "bun run --cwd api test:e2e",
     "start": "docker compose up --build",
     "docker:build": "docker compose build --parallel",
     "docker:push": "docker compose push",

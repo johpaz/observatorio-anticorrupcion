@@ -1,4 +1,11 @@
 import { NavLink } from 'react-router-dom'
+import { useApiHealth } from '../utils/useApiHealth'
+
+const HEALTH_UI = {
+  ok:       { color: 'bg-emerald-400', title: 'API en línea' },
+  down:     { color: 'bg-rose-500 animate-pulse', title: 'API sin conexión — reintentando' },
+  checking: { color: 'bg-slate-400', title: 'Verificando conexión con la API...' },
+} as const
 
 const NAV_ITEMS = [
   {
@@ -69,6 +76,7 @@ const NAV_ITEMS = [
 ]
 
 export default function Sidebar() {
+  const health = useApiHealth()
   return (
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40">
       <nav
@@ -91,12 +99,18 @@ export default function Sidebar() {
           </div>
           <div className="flex flex-col leading-none">
             <span className="text-[11px] font-black text-white tracking-widest uppercase" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-              SECOP II
-            </span>
-            <span className="text-[8px] font-semibold text-slate-400 tracking-wider uppercase">
               Observatorio
             </span>
+            <span className="text-[8px] font-semibold text-slate-400 tracking-wider uppercase">
+              Anticorrupción
+            </span>
           </div>
+          {/* Heartbeat: estado de la API (/api/health) */}
+          <span
+            title={HEALTH_UI[health].title}
+            aria-label={HEALTH_UI[health].title}
+            className={`w-2 h-2 rounded-full shrink-0 self-start ${HEALTH_UI[health].color}`}
+          />
         </div>
 
         {/* Nav Links */}

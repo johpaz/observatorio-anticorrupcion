@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { db } from '../db/client'
 import { scoreNit } from '../services/scorer'
+import { getSanciones } from '../services/procuraduria'
 
 export const contratistaRoutes = new Elysia({ prefix: '/api/contratista' })
   .onError(({ error, set }) => { set.status = 500; return { error: String(error) } })
@@ -13,7 +14,7 @@ export const contratistaRoutes = new Elysia({ prefix: '/api/contratista' })
       db.prepare(`DELETE FROM scores WHERE nit = ?`).run(nit)
     }
 
-    const scoreResult = await scoreNit(nit)
+    const [scoreResult, sanciones] = await Promise.all([scoreNit(nit), getSanciones(nit)])
 
     const contratos = db.query<any, [string]>(
       `SELECT contrato_id, entidad, valor, fecha_inicio, fecha_fin, estado, sector
@@ -28,6 +29,16 @@ export const contratistaRoutes = new Elysia({ prefix: '/api/contratista' })
     return {
       ...scoreResult,
       contratos,
+      // Detalle de antecedentes para la UI (null si la fuente no responde)
+      sanciones: sanciones
+        ? {
+            resumen: sanciones.resumen,
+            fiscales: sanciones.fiscales.slice(0, 10),
+            disciplinarios: sanciones.disciplinarios.slice(0, 10),
+            multas: sanciones.multas.slice(0, 10),
+            obras: sanciones.obras.slice(0, 10),
+          }
+        : null,
       cached: query.refresh !== '1',
       calculado_at: scoreRow
         ? new Date(scoreRow.calculado_at * 1000).toISOString()

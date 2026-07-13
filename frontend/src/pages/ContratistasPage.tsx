@@ -7,13 +7,8 @@ import { contratistaApi } from '../api/client'
 import type { ContratistaResponse } from '../api/client'
 import { useContratistasStore } from '../store/useContratistasStore'
 import { formatCOP, formatDate } from '../utils/formatters'
-
-const FLAG_LABELS: Record<string, string> = {
-  TERMINACION_UNILATERAL_O_INCUMPLIMIENTO: 'Contrato terminado unilateralmente o liquidado con incumplimiento (+30 pts)',
-  VENCIDOS_SIN_LIQUIDAR: 'Contratos vencidos hace más de 6 meses sin liquidar (+25 pts c/u)',
-  CONCENTRACION_ENTIDADES: 'Contratos en 5 o más entidades públicas distintas en el mismo sector (+10 pts)',
-  MULTIPLES_ADICIONES: 'Tres o más adiciones o prórrogas registradas (+20 pts)',
-}
+import { useSeo } from '../utils/useSeo'
+import { flagLabel } from '../utils/flags'
 
 const CONTRATO_COLS = [
   { key: 'entidad', label: 'Entidad' },
@@ -25,6 +20,7 @@ const CONTRATO_COLS = [
 ]
 
 export default function ContratistasPage() {
+  useSeo('Consulta de Contratistas y Sanciones', 'Verifica antecedentes de contratistas del Estado colombiano por NIT o nombre: sanciones de Procuraduría, responsabilidad fiscal y historial en SECOP II.')
   const { nit: nitParam } = useParams<{ nit?: string }>()
   const navigate = useNavigate()
   const [searchInput, setSearchInput] = useState(nitParam ?? '')
@@ -111,15 +107,12 @@ export default function ContratistasPage() {
             <div className="card p-5 space-y-3 border border-rose-200 bg-rose-50/30">
               <h3 className="text-xs font-bold text-rose-800 serif uppercase tracking-wider">Alertas y Banderas Rojas Detectadas</h3>
               <div className="space-y-2">
-                {profile.flags.map(flag => {
-                  const key = Object.keys(FLAG_LABELS).find(k => flag.startsWith(k)) ?? flag
-                  return (
-                    <div key={flag} className="flex items-start gap-2.5 text-xs sm:text-sm">
-                      <span className="text-rose-600 font-bold shrink-0 text-sm">⚠️</span>
-                      <span className="text-slate-700 font-medium">{FLAG_LABELS[key] ?? flag}</span>
-                    </div>
-                  )
-                })}
+                {profile.flags.map(flag => (
+                  <div key={flag} className="flex items-start gap-2.5 text-xs sm:text-sm">
+                    <span className="text-rose-600 font-bold shrink-0 text-sm">⚠️</span>
+                    <span className="text-slate-700 font-medium">{flagLabel(flag)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
@@ -147,12 +140,80 @@ export default function ContratistasPage() {
             />
           </div>
 
-          <div className="border border-dashed border-slate-200 bg-slate-50 rounded-xl p-5 text-slate-600 text-xs sm:text-sm flex items-center gap-3">
-            <span className="text-xl shrink-0">🔒</span>
-            <span className="font-semibold text-slate-500">
-              Sanciones PACO complejas (Procuraduría General, Contraloría, Fiscalía): <span className="text-[#004884]">Disponible en Fase 2</span>
-            </span>
-          </div>
+          {/* Antecedentes oficiales: SIRI (Procuraduría), CGR, multas SECOP y obras inconclusas */}
+          {profile.sanciones === null ? (
+            <div className="border border-dashed border-amber-200 bg-amber-50/50 rounded-xl p-5 text-amber-700 text-xs sm:text-sm flex items-center gap-3">
+              <span className="text-xl shrink-0">⚠️</span>
+              <span className="font-semibold">
+                No fue posible consultar la base de sanciones en este momento (Procuraduría · Contraloría · Multas SECOP · Obras).
+              </span>
+            </div>
+          ) : profile.sanciones.resumen.total_registros === 0 ? (
+            <div className="border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl p-5 text-sm font-semibold flex items-center gap-2 shadow-sm">
+              <span>✅</span>
+              <span>Sin registros en Procuraduría (SIRI), Contraloría (CGR), multas SECOP ni obras inconclusas.</span>
+            </div>
+          ) : (
+            <div className="card p-5 space-y-5 border border-slate-200 bg-white">
+              <h3 className="text-xs font-bold text-slate-650 serif uppercase tracking-wider">
+                Antecedentes en Fuentes Oficiales · {profile.sanciones.resumen.total_registros} registro(s)
+              </h3>
+
+              {profile.sanciones.disciplinarios.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-rose-700 uppercase tracking-wide">Sanciones disciplinarias — Procuraduría (SIRI)</p>
+                  {profile.sanciones.disciplinarios.map((d, i) => (
+                    <div key={i} className="text-xs sm:text-sm text-slate-700 bg-rose-50/40 border border-rose-100 rounded-lg px-4 py-2.5">
+                      <span className="font-semibold">{d.tipo_sancion_aplicada || 'Sanción disciplinaria'}</span>
+                      {d.institucion && <span> · {d.institucion}</span>}
+                      {d.fecha_sancion && <span className="text-slate-500"> · {formatDate(d.fecha_sancion)}</span>}
+                      {d.duracion_anos ? <span className="text-slate-500"> · {d.duracion_anos} año(s)</span> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {profile.sanciones.fiscales.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Responsabilidad fiscal — Contraloría (CGR)</p>
+                  {profile.sanciones.fiscales.map((f, i) => (
+                    <div key={i} className="text-xs sm:text-sm text-slate-700 bg-amber-50/40 border border-amber-100 rounded-lg px-4 py-2.5">
+                      <span className="font-semibold">{f.entidad_afectada || 'Entidad afectada no registrada'}</span>
+                      {f.departamento && <span className="text-slate-500"> · {f.departamento}{f.municipio ? ` — ${f.municipio}` : ''}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {profile.sanciones.multas.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-[#004884] uppercase tracking-wide">Multas en contratos — SECOP</p>
+                  {profile.sanciones.multas.map((m, i) => (
+                    <div key={i} className="text-xs sm:text-sm text-slate-700 bg-blue-50/40 border border-blue-100 rounded-lg px-4 py-2.5">
+                      <span className="font-semibold">{m.entidad || 'Entidad no registrada'}</span>
+                      {m.valor_multa ? <span> · {formatCOP(m.valor_multa)}</span> : null}
+                      {m.resolucion && <span className="text-slate-500"> · Res. {m.resolucion}</span>}
+                      {m.fecha_imposicion && <span className="text-slate-500"> · {formatDate(m.fecha_imposicion)}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {profile.sanciones.obras.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Obras inconclusas o mal ejecutadas — MDN</p>
+                  {profile.sanciones.obras.map((o, i) => (
+                    <div key={i} className="text-xs sm:text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+                      <span className="font-semibold">{o.nombre_entidad || 'Entidad no registrada'}</span>
+                      {o.estado && <span> · {o.estado}</span>}
+                      {typeof o.avance === 'number' ? <span className="text-slate-500"> · avance {Math.round(o.avance)}%</span> : null}
+                      {o.valor_contrato ? <span className="text-slate-500"> · {formatCOP(o.valor_contrato)}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <p className="text-xs text-slate-500 text-right font-medium">
             Último Cálculo: {formatDate(profile.calculado_at)} · {profile.cached ? 'Desde caché local' : 'Descargado recientemente'}

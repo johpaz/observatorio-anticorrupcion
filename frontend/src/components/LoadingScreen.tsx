@@ -35,20 +35,27 @@ export default function LoadingScreen({ onDone, minDuration = 2200 }: Props) {
       />
 
       <div className="relative flex flex-col items-center gap-8 bg-white/80 p-10 rounded-2xl border border-slate-200/60 shadow-xl backdrop-blur-md max-w-sm w-full mx-4">
-        {/* Logo con glow sutil */}
-        <img
-          src="/logo_col50.png"
-          alt="Colombia 5.0"
-          className="h-20 w-auto logo-glow select-none"
-        />
+        {/* Marca tricolor */}
+        <div className="flex items-center gap-4 select-none">
+          <div className="flex flex-col w-3 h-16 rounded-full overflow-hidden shadow-[0_0_14px_rgba(254,200,47,0.35)]">
+            <div className="flex-1 bg-[#FEC82F]" />
+            <div className="flex-1 bg-[#004884]" />
+            <div className="flex-1 bg-[#CE1126]" />
+          </div>
+          <div className="flex flex-col leading-tight text-left">
+            <span className="text-[#002D58] text-xl font-black tracking-tight uppercase" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+              Observatorio
+            </span>
+            <span className="text-[#004884] text-sm font-bold tracking-[0.18em] uppercase" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+              Anticorrupción
+            </span>
+          </div>
+        </div>
 
         {/* Subtítulo */}
         <div className="text-center space-y-1.5">
-          <p className="text-[#004884] text-lg font-bold tracking-[0.08em] uppercase serif">
-            Observatorio SECOP II
-          </p>
           <p className="text-slate-500 text-xs tracking-wider uppercase font-semibold">
-            Contratos · Archivos · Colombia
+            de Colombia · SECOP II
           </p>
         </div>
 

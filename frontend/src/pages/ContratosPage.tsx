@@ -8,6 +8,7 @@ import DataTable from '../components/DataTable'
 import { contratosApi } from '../api/client'
 import { formatCOP, formatNumber, formatDate } from '../utils/formatters'
 import { useContratosStore, CONTRATOS_INITIAL, cacheKey } from '../store/useContratosStore'
+import { useSeo } from '../utils/useSeo'
 
 const TABLE_COLS = [
   { key: 'nombre_entidad', label: 'Entidad' },
@@ -20,6 +21,7 @@ const TABLE_COLS = [
 ]
 
 export default function ContratosPage() {
+  useSeo('Contratos SECOP II', 'Explora y filtra contratos electrónicos de SECOP II en tiempo real: valores, entidades, sectores y estados de la contratación pública en Colombia.')
   const {
     metadata, metadataLoaded,
     filters, page, loading, data,

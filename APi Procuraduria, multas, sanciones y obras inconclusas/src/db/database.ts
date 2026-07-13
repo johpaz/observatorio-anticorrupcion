@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { join } from "path";
 
-const DB_PATH = join(import.meta.dir, "..", "..", "data.db");
+const DB_PATH = Bun.env.DATA_DB_PATH ?? join(import.meta.dir, "..", "..", "data.db");
 
 let _db: Database | null = null;
 

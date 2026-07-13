@@ -1,6 +1,8 @@
-# SECOP Dashboard
+# Observatorio Anticorrupción de Colombia
 
-Aplicación de analítica y vigilancia de contratación pública para Colombia que integra datos de SECOP, procuraduría, multas, sanciones y obras inconclusas en un tablero unificado para monitoreo, alertas y consulta inteligente.
+Plataforma de analítica y vigilancia ciudadana de la contratación pública en Colombia. Integra datos abiertos de SECOP II, Procuraduría, Contraloría, multas, sanciones y obras inconclusas en un tablero unificado para monitoreo, alertas de riesgo de corrupción y consulta inteligente.
+
+Sitio en producción: https://observatorio-col.srv991465.hstgr.cloud
 
 ## Visión general
 
@@ -113,6 +115,8 @@ Algunas variables importantes usadas por los servicios:
 - PROCURADURIA_URL: URL del microservicio de procuraduría
 - SOCRATA_APP_TOKEN: token para integraciones externas
 - GEMINI_API_KEY: clave para operaciones de IA
+- ALERTAS_WARMUP: `0` desactiva el precálculo de alertas por sector al arrancar la API
+- PYTHON_BIN: intérprete de Python para el pipeline ML (por defecto `python3`)
 
 ## Endpoints principales
 
@@ -124,6 +128,38 @@ La API expone módulos como:
 - /alertas
 - /contratistas
 - /chat
+
+## Tests
+
+La suite valida la promesa del sistema de punta a punta: las 9 banderas de riesgo con sus puntajes exactos, el semáforo (ROJO >60, AMARILLO 30–60, VERDE <30), la persistencia en SQLite (scores, contratos_cache, FTS5), las tres capas de caché y la UI.
+
+### Unit tests (sin red, con mocks)
+
+```bash
+bun run test
+```
+
+Corre en orden: scorer de la API (banderas, semáforo, persistencia, caché), caché de Socrata, servicio de Procuraduría (/persona, /stats, /search) y UI del frontend (happy-dom + Testing Library).
+
+### Auditoría E2E (requiere internet y datos)
+
+```bash
+bun run test:e2e
+```
+
+Levanta la API y el servicio de Procuraduría en puertos de prueba con bases de datos aisladas, ingesta contratos reales desde datos.gov.co, verifica que el score de cada NIT sea exactamente la suma de los puntos de sus banderas, que la segunda consulta salga del caché SQLite en milisegundos y que el pipeline de Isolation Forest escriba anomaly_scores.
+
+Requisitos previos del E2E (una sola vez):
+
+```bash
+# Poblar la base de sanciones (SIRI, CGR, multas, obras) desde los CSVs
+cd "APi Procuraduria, multas, sanciones y obras inconclusas" && bun run seed
+
+# Entorno Python para el pipeline ML (Isolation Forest)
+python3 -m venv .venv && .venv/bin/pip install scikit-learn pandas
+```
+
+El scorer usa la variable `PYTHON_BIN` para localizar el intérprete de Python (por defecto `python3`); en desarrollo local apúntala a `.venv/bin/python3`.
 
 ## Flujo de desarrollo recomendado
 

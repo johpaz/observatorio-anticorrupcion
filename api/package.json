@@ -1,9 +1,11 @@
 {
-  "name": "secop-api",
+  "name": "observatorio-api",
   "version": "1.0.0",
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "test": "bun test tests/scorer.test.ts && bun test tests/socrata-cache.test.ts",
+    "test:e2e": "bun test tests/e2e.audit.test.ts"
   },
   "dependencies": {
     "elysia": "^1.1.27",

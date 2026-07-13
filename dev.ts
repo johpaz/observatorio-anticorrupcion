@@ -1,6 +1,11 @@
 import { spawn } from 'bun'
+import { existsSync } from 'fs'
 
-console.log('Starting SECOP Dashboard in development mode...\n')
+console.log('Starting Observatorio Anticorrupción de Colombia in development mode...\n')
+
+// Isolation Forest usa el venv local si existe (ver README: sección Tests)
+const venvPython = import.meta.dir + '/.venv/bin/python3'
+const PYTHON_BIN = process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : 'python3')
 
 const procuraduria = spawn({
   cmd: ['bun', 'run', '--watch', 'src/index.ts'],
@@ -15,7 +20,7 @@ const api = spawn({
   cwd: import.meta.dir + '/api',
   stdout: 'inherit',
   stderr: 'inherit',
-  env: { ...process.env, PORT: '3001', PROCURADURIA_URL: 'http://localhost:3000' },
+  env: { ...process.env, PORT: '3001', PROCURADURIA_URL: 'http://localhost:3000', PYTHON_BIN },
 })
 
 const frontend = spawn({
