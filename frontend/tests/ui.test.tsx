@@ -406,6 +406,27 @@ describe('Sidebar: heartbeat contra /api/health', () => {
 
 // ── LandingPage: hero con datos vivos y fallback ─────────────────────────
 describe('LandingPage: KPIs del hero', () => {
+  test('distingue los canales activos de las integraciones disponibles', () => {
+    hangAll = true
+    render(<MemoryRouter><LandingPage /></MemoryRouter>)
+
+    expect(screen.getByRole('heading', { name: 'El observatorio, donde lo necesites' })).toBeTruthy()
+    expect(screen.getByText('Telegram')).toBeTruthy()
+    expect(screen.getByText('Conectado')).toBeTruthy()
+    expect(screen.getAllByText('Listo para configurar')).toHaveLength(3)
+  })
+
+  test('publica las fuentes metodológicas y sus enlaces a los papers', () => {
+    hangAll = true
+    render(<MemoryRouter><LandingPage /></MemoryRouter>)
+
+    expect(screen.getByRole('heading', { name: 'Fuentes y fundamento' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Consultar estudio: Índice de riesgo/i }).getAttribute('href'))
+      .toBe('https://hdl.handle.net/11445/3872')
+    expect(screen.getByRole('link', { name: /Leer paper: Isolation Forest/i }).getAttribute('href'))
+      .toBe('https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf')
+  })
+
   test('con la API disponible muestra las cifras reales', async () => {
     routes['/api/contratos/kpis'] = () => ({ total: '1500000', valor_total: '50200000000000', valor_promedio: '1' })
     routes['/api/alertas/stats'] = () => ({ total: 500, rojos: 321, amarillos: 100, verdes: 79 })

@@ -27,6 +27,33 @@ const STACK = [
   { label: 'Procuraduría API', sub: 'SIRI + CGR + Multas' },
 ]
 
+const METHODOLOGY_SOURCES = [
+  {
+    kind: 'Antecedente metodológico · Colombia',
+    title: 'Índice de riesgo de corrupción en el sistema de compra pública colombiano',
+    authors: 'M. M. Zuleta, S. Ospina y C. A. Caro · Fedesarrollo/BID, 2019',
+    detail: 'Metodología aplicada a datos SECOP con indicadores de competencia, transparencia y anomalías en la compra pública.',
+    href: 'https://hdl.handle.net/11445/3872',
+    cta: 'Consultar estudio',
+  },
+  {
+    kind: 'Fundamento del modelo de anomalías',
+    title: 'Isolation Forest',
+    authors: 'F. T. Liu, K. M. Ting y Z.-H. Zhou · IEEE ICDM, 2008',
+    detail: 'Paper original del algoritmo no supervisado utilizado para identificar contratistas estadísticamente atípicos frente a sus pares.',
+    href: 'https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf',
+    cta: 'Leer paper',
+  },
+]
+
+const AGENT_CHANNELS = [
+  { name: 'Web', status: 'Disponible', active: true },
+  { name: 'Telegram', status: 'Conectado', active: true },
+  { name: 'WhatsApp', status: 'Listo para configurar', active: false },
+  { name: 'Slack', status: 'Listo para configurar', active: false },
+  { name: 'Discord', status: 'Listo para configurar', active: false },
+]
+
 // Cifras de respaldo mientras la API responde (o si no está disponible) —
 // magnitudes reales del dataset SECOP II a julio 2026
 const HERO_FALLBACK = { valor: '$2461B', contratos: '5.68M', rojas: '1,450' }
@@ -105,6 +132,7 @@ export default function LandingPage() {
 
             <div className="flex flex-wrap gap-4 pt-6 border-t border-[#002D58]/10 mt-8">
               <button
+                type="button"
                 onClick={() => navigate('/alertas')}
                 className="bg-[#002D58] text-white px-8 py-4 text-sm font-bold uppercase tracking-wider hover:bg-[#004884] transition-all duration-200 flex items-center gap-2 group rounded shadow-lg hover:shadow-xl active:scale-[0.98]"
                 style={{ fontFamily: 'Montserrat, sans-serif' }}
@@ -115,6 +143,7 @@ export default function LandingPage() {
                 </svg>
               </button>
               <button
+                type="button"
                 onClick={() => navigate('/contratistas')}
                 className="border-2 border-[#002D58] text-[#002D58] px-8 py-4 text-sm font-bold uppercase tracking-wider hover:bg-[#002D58]/5 transition-colors flex items-center gap-2 rounded active:scale-[0.98]"
                 style={{ fontFamily: 'Montserrat, sans-serif' }}
@@ -201,6 +230,32 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          <div className="mt-8 overflow-hidden rounded-xl border border-[#002D58]/15 bg-white shadow-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              <div className="lg:col-span-5 border-b border-[#002D58]/10 p-6 lg:border-b-0 lg:border-r">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#CE1126]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                  Acceso multicanal
+                </span>
+                <h3 className="mt-2 text-xl font-black text-[#002D58]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                  El observatorio, donde lo necesites
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  El agente está disponible en el chat de esta web y, en esta versión, conectado a Telegram. La arquitectura también permite habilitar WhatsApp, Slack y Discord para facilitar el acceso desde los canales de cada comunidad.
+                </p>
+              </div>
+
+              <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-5">
+                {AGENT_CHANNELS.map(channel => (
+                  <div key={channel.name} className="flex min-h-28 flex-col items-center justify-center gap-2 border-b border-r border-[#002D58]/10 p-4 text-center last:border-r-0 sm:border-b-0">
+                    <span className={`h-2.5 w-2.5 rounded-full ${channel.active ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]' : 'bg-[#004884]/30'}`} aria-hidden="true" />
+                    <span className="text-sm font-black text-[#002D58]" style={{ fontFamily: 'Montserrat, sans-serif' }}>{channel.name}</span>
+                    <span className={`text-xs font-semibold leading-tight ${channel.active ? 'text-emerald-700' : 'text-slate-500'}`}>{channel.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* ── Banderas de Riesgo ─────────────────────────────────── */}
@@ -237,7 +292,55 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Semáforo de Riesgo ──────────────────────────────────── */}
+        {/* Sustento metodológico */}
+        <section className="mb-24" aria-labelledby="fuentes-metodologia">
+          <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden rounded-2xl border border-[#002D58]/15 bg-[#F1F5F8] shadow-sm">
+            <div className="lg:col-span-4 bg-[#002D58] p-8 text-white">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#FEC82F]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                Transparencia metodológica
+              </span>
+              <h2 id="fuentes-metodologia" className="mt-3 text-2xl font-black uppercase tracking-tight" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                Fuentes y fundamento
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-white/75">
+                El puntaje adapta indicadores documentados para la compra pública colombiana y los complementa con detección de anomalías mediante Isolation Forest.
+              </p>
+              <p className="mt-6 border-l-2 border-[#FEC82F] pl-4 text-xs leading-relaxed text-white/65">
+                Los pesos y umbrales publicados en este observatorio son una implementación propia. Una alerta orienta la revisión; no constituye prueba de corrupción ni una decisión administrativa o judicial.
+              </p>
+            </div>
+
+            <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-px bg-[#002D58]/10">
+              {METHODOLOGY_SOURCES.map(source => (
+                <article key={source.title} className="flex flex-col bg-white p-8">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#CE1126]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                    {source.kind}
+                  </span>
+                  <h3 className="mt-3 text-lg font-black leading-snug text-[#002D58]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                    {source.title}
+                  </h3>
+                  <p className="mt-2 text-xs font-semibold text-[#004884]/75">{source.authors}</p>
+                  <p className="mt-4 flex-1 text-sm leading-relaxed text-slate-600">{source.detail}</p>
+                  <a
+                    href={source.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-6 inline-flex w-fit items-center gap-2 border-b-2 border-[#FEC82F] pb-1 text-xs font-black uppercase tracking-wider text-[#002D58] transition-colors hover:border-[#CE1126] hover:text-[#CE1126] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#004884]"
+                    style={{ fontFamily: 'Montserrat, sans-serif' }}
+                    aria-label={`${source.cta}: ${source.title} (abre en una pestaña nueva)`}
+                  >
+                    {source.cta}
+                    <svg className="h-3.5 w-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M14 5h5m0 0v5m0-5L10 14M5 8v11h11v-5" />
+                    </svg>
+                  </a>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Semáforo de Riesgo ── */}
         <section className="mb-24">
           <div className="text-center mb-12">
             <span className="text-xs font-bold text-[#004884] uppercase tracking-widest block mb-2" style={{ fontFamily: 'Montserrat, sans-serif' }}>Clasificación de riesgo</span>
@@ -287,7 +390,7 @@ export default function LandingPage() {
             {STACK.map(({ label, sub }) => (
               <div key={label} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:border-[#004884]/20 hover:shadow transition-all duration-200">
                 <div className="text-sm font-bold text-[#002D58] mb-1">{label}</div>
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider" style={{ fontSize: 9 }}>{sub}</div>
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">{sub}</div>
               </div>
             ))}
           </div>
