@@ -1,7 +1,6 @@
 node_modules/
 dist/
 .env
-bun.lock
 *.lockb
 .venv/
 
@@ -9,3 +8,7 @@ bun.lock
 *.db
 *.db-shm
 *.db-wal
+
+# Volúmenes de datos de Docker
+data/
+hive-data/

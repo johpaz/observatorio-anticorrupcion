@@ -3,6 +3,9 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { getDb } from "./database";
 import { createSchema } from "./schema";
+import { createLogger } from "../utils/logger";
+
+const log = createLogger("seed");
 
 const DATA_DIR = join(import.meta.dir, "..", "..");
 
@@ -62,7 +65,7 @@ function safeStr(v: string | undefined): string {
 function seedFiscales() {
   const db = getDb();
   const count = (db.query("SELECT COUNT(*) as c FROM fiscales").get() as { c: number }).c;
-  if (count > 0) { console.log("  fiscales: ya cargado"); return; }
+  if (count > 0) { log.info("  fiscales: ya cargado"); return; }
 
   const raw = readFileSync(join(DATA_DIR, "responsabilidades_fiscales.csv"), "utf-8");
   const rows = parseStandardCsv(raw);
@@ -82,14 +85,14 @@ function seedFiscales() {
   });
 
   insertMany(data);
-  console.log(`  fiscales: ${data.length} filas insertadas`);
+  log.info(`  fiscales: ${data.length} filas insertadas`);
 }
 
 // ─── Penales ─────────────────────────────────────────────────────────────────
 function seedPenales() {
   const db = getDb();
   const count = (db.query("SELECT COUNT(*) as c FROM penales").get() as { c: number }).c;
-  if (count > 0) { console.log("  penales: ya cargado"); return; }
+  if (count > 0) { log.info("  penales: ya cargado"); return; }
 
   const raw = readFileSync(join(DATA_DIR, "sanciones_penales_FGN.csv"), "utf-8");
   const rows = parseStandardCsv(raw);
@@ -108,14 +111,14 @@ function seedPenales() {
   });
 
   insertMany(data);
-  console.log(`  penales: ${data.length} filas insertadas`);
+  log.info(`  penales: ${data.length} filas insertadas`);
 }
 
 // ─── Disciplinarios (SIRI) ───────────────────────────────────────────────────
 function seedDisciplinarios() {
   const db = getDb();
   const count = (db.query("SELECT COUNT(*) as c FROM disciplinarios").get() as { c: number }).c;
-  if (count > 0) { console.log("  disciplinarios: ya cargado"); return; }
+  if (count > 0) { log.info("  disciplinarios: ya cargado"); return; }
 
   const raw = readFileSync(join(DATA_DIR, "antecedentes_SIRI_sanciones_Cleaned.csv.csv"), "utf-8");
   // Archivo sin header, filas envueltas en comillas externas
@@ -157,14 +160,14 @@ function seedDisciplinarios() {
     inserted += batch.length;
     process.stdout.write(`\r  disciplinarios: ${inserted} / ${rows.length}`);
   }
-  console.log(`\n  disciplinarios: ${inserted} filas insertadas`);
+  log.info(`\n  disciplinarios: ${inserted} filas insertadas`);
 }
 
 // ─── Multas SECOP ────────────────────────────────────────────────────────────
 function seedMultas() {
   const db = getDb();
   const count = (db.query("SELECT COUNT(*) as c FROM multas_secop").get() as { c: number }).c;
-  if (count > 0) { console.log("  multas_secop: ya cargado"); return; }
+  if (count > 0) { log.info("  multas_secop: ya cargado"); return; }
 
   const raw = readFileSync(join(DATA_DIR, "multas_SECOP_Cleaned.csv"), "utf-8");
   // Separador punto y coma, SIN header
@@ -188,14 +191,14 @@ function seedMultas() {
   });
 
   insertMany(rows);
-  console.log(`  multas_secop: ${rows.length} filas insertadas`);
+  log.info(`  multas_secop: ${rows.length} filas insertadas`);
 }
 
 // ─── Obras MD-2000-2011 ──────────────────────────────────────────────────────
 function seedObras() {
   const db = getDb();
   const count = (db.query("SELECT COUNT(*) as c FROM obras").get() as { c: number }).c;
-  if (count > 0) { console.log("  obras: ya cargado"); return; }
+  if (count > 0) { log.info("  obras: ya cargado"); return; }
 
   const raw = readFileSync(join(DATA_DIR, "MD-2000-2011.csv"), "utf-8");
   const lines = stripBOM(raw).split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -232,18 +235,22 @@ function seedObras() {
   });
 
   insertMany(rows);
-  console.log(`  obras: ${rows.length} filas insertadas`);
+  log.info(`  obras: ${rows.length} filas insertadas`);
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-console.log("Creando schema...");
-createSchema();
+export function runSeed(): void {
+  log.info("Creando schema...");
+  createSchema();
 
-console.log("Cargando datos CSV en SQLite...");
-seedFiscales();
-seedPenales();
-seedDisciplinarios();
-seedMultas();
-seedObras();
+  log.info("Cargando datos CSV en SQLite...");
+  seedFiscales();
+  seedPenales();
+  seedDisciplinarios();
+  seedMultas();
+  seedObras();
 
-console.log("\nSeed completado.");
+  log.info("\nSeed completado.");
+}
+
+if (import.meta.main) runSeed();

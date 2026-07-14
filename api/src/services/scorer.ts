@@ -2,6 +2,9 @@ import { join } from 'path'
 import { socrataQuery } from './socrata'
 import { db, DB_PATH } from '../db/client'
 import { checkSanciones } from './procuraduria'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('scorer')
 
 const SCORE_TTL_SEC = 3600
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000
@@ -68,9 +71,9 @@ async function runAnomalyDetection(sector: string): Promise<void> {
     )
     await proc.exited
     const out = await new Response(proc.stdout).text()
-    if (out.trim()) console.log(out.trim())
+    if (out.trim()) log.info(out.trim())
   } catch (e) {
-    console.warn('[ML] Anomaly detection skipped:', String(e))
+    log.warn(`anomaly detection omitido: ${String(e)}`)
   }
 }
 

@@ -7,17 +7,20 @@ import { contratistaRoutes } from './routes/contratista'
 import { chatRoutes } from './routes/chat'
 import { initDb } from './db/client'
 import { startChannels } from './channels'
+import { createLogger } from './utils/logger'
+
+const log = createLogger('api')
 
 initDb()
-startChannels().catch(err => console.error('[api] Channel startup failed:', err))
+startChannels().catch(err => log.error('Channel startup failed', err))
 
 // Red de seguridad: un error no capturado (p. ej. bajo degradación de Socrata)
-// no debe tumbar el proceso — se registra con timestamp y el servidor sigue vivo.
+// no debe tumbar el proceso — se registra y el servidor sigue vivo.
 process.on('uncaughtException', (err) => {
-  console.error(`[api] uncaughtException ${new Date().toISOString()}:`, err)
+  log.error('uncaughtException', err)
 })
 process.on('unhandledRejection', (reason) => {
-  console.error(`[api] unhandledRejection ${new Date().toISOString()}:`, reason)
+  log.error('unhandledRejection', reason)
 })
 
 const PORT = Number(Bun.env.PORT) || 3001
@@ -38,7 +41,7 @@ new Elysia()
     // deben completar o fallar con 500 limpio — nunca cortar el socket sin respuesta
     idleTimeout: 60,
   }, () => {
-    console.log(`SECOP API running on port ${PORT}`)
+    log.info(`Observatorio API escuchando en el puerto ${PORT}`)
   })
 
 // Precálculo de alertas por sector: los usuarios siempre encuentran datos en SQLite.

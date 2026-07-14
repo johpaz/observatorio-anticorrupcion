@@ -1,8 +1,14 @@
 services:
   procuraduria:
+    build:
+      context: "./APi Procuraduria, multas, sanciones y obras inconclusas"
     image: johpaz/secop-procuraduria:latest
     environment:
       - PORT=3000
+      # La base vive en un volumen de directorio; si está vacía se auto-seedea desde los CSV
+      - DATA_DB_PATH=/app/data/data.db
+    volumes:
+      - ./data/procuraduria:/app/data
     restart: unless-stopped
     networks:
       - n8n_evoapi
@@ -24,14 +30,19 @@ services:
       - HIVE_MASTER_KEY=${HIVE_MASTER_KEY}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
+      # Directorio (no archivo): evita que Docker cree un directorio-fantasma
+      # cuando el .db no existe, y los sidecars WAL quedan dentro del volumen
+      - ANTICORRUP_DB_PATH=/app/data/anticorrup.db
     volumes:
-      - ./anticorrup.db:/app/anticorrup.db
+      - ./data/api:/app/data
       - ./hive-data:/app/hive-data
     restart: unless-stopped
     networks:
       - n8n_evoapi
 
   frontend:
+    build:
+      context: ./frontend
     image: johpaz/secop-frontend:latest
     depends_on:
       - api

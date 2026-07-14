@@ -2,6 +2,9 @@ import { Elysia, t } from 'elysia'
 import { db } from '../db/client'
 import { scoreSectorBatch, hasSanctionFlag } from '../services/scorer'
 import { socrataQuery } from '../services/socrata'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('alertas')
 
 // Respaldo si Socrata no responde en el primer arranque (sin copia local aún)
 const SECTORES_FALLBACK = [
@@ -53,20 +56,20 @@ function refreshSector(sector: string, limit = BATCH_LIMIT) {
 /** Precalcula los sectores sin datos frescos — se llama al arrancar el API. */
 export async function warmupAlertas(): Promise<void> {
   const sectores = await getSectores()
-  console.log(`[warmup] ${sectores.length} sectores por precalcular`)
+  log.info(`warmup: ${sectores.length} sectores por precalcular`)
   for (const sector of sectores) {
     const fresh = db.query<{ c: number }, [string, number]>(
       `SELECT COUNT(*) c FROM scores WHERE sector = ? AND calculado_at > unixepoch() - ?`
     ).get(sector, SCORE_TTL_SEC)
     if ((fresh?.c ?? 0) > 0) continue
     try {
-      console.log(`[warmup] calculando alertas del sector "${sector}"...`)
+      log.info(`warmup: calculando alertas del sector "${sector}"...`)
       await refreshSector(sector)
     } catch (err) {
-      console.warn(`[warmup] sector "${sector}" falló:`, String(err))
+      log.warn(`warmup: sector "${sector}" falló: ${String(err)}`)
     }
   }
-  console.log('[warmup] alertas precalculadas')
+  log.info('warmup: alertas precalculadas')
 }
 
 export const alertasRoutes = new Elysia({ prefix: '/api/alertas' })
@@ -106,7 +109,7 @@ export const alertasRoutes = new Elysia({ prefix: '/api/alertas' })
     // refrescar en segundo plano sin hacer esperar a nadie
     if (stale) {
       refreshSector(sector).catch(err =>
-        console.warn(`[alertas] refresco en segundo plano de "${sector}" falló:`, String(err)))
+        log.warn(`refresco en segundo plano de "${sector}" falló: ${String(err)}`))
     }
 
     const nivelClause = nivel ? 'AND nivel_riesgo = ?' : ''

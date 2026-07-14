@@ -1,4 +1,7 @@
 import { db } from '../db/client'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('socrata')
 
 const BASES: Record<string, string> = {
   contratos: 'https://www.datos.gov.co/resource/jbjy-vk9h.json',
@@ -48,8 +51,8 @@ export async function socrataQuery(
       `SELECT data, updated_at FROM socrata_cache WHERE key = ?`
     ).get(key)
     if (stale) {
-      console.warn(
-        `[socrata] fuente degradada — sirviendo copia local de ${dataset} ` +
+      log.warn(
+        `fuente degradada — sirviendo copia local de ${dataset} ` +
         `(actualizada ${new Date(stale.updated_at * 1000).toISOString()}): ${String(err)}`
       )
       const data = JSON.parse(stale.data) as unknown[]

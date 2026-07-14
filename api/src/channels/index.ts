@@ -3,6 +3,9 @@ import { initializeDatabase } from '@johpaz/hive-agents-core/storage/sqlite'
 import { handleChatMessage } from '../chat/handler'
 import type { Config } from '@johpaz/hive-agents-core/config/loader'
 import { join } from 'path'
+import { createLogger } from '../utils/logger'
+
+const log = createLogger('channels')
 
 export async function startChannels(): Promise<void> {
   // Ensure Hive has a home directory for WhatsApp auth and its own SQLite schema.
@@ -12,14 +15,14 @@ export async function startChannels(): Promise<void> {
   try {
     initializeDatabase()
   } catch (err) {
-    console.error('[channels] Failed to initialize Hive database:', (err as Error).message)
+    log.error(`Failed to initialize Hive database: ${(err as Error).message}`)
   }
 
   const telegramBotToken = Bun.env.TELEGRAM_BOT_TOKEN
   const whatsappEnabled = Bun.env.WHATSAPP_ENABLED === 'true' || Bun.env.WHATSAPP_ENABLED === '1'
 
   if (!telegramBotToken && !whatsappEnabled) {
-    console.log('[channels] No channel configuration found; skipping channel startup')
+    log.info('No channel configuration found; skipping channel startup')
     return
   }
 
@@ -54,7 +57,7 @@ export async function startChannels(): Promise<void> {
   const channelManager = new ChannelManager(config)
 
   channelManager.onMessage(async (message) => {
-    console.log(`[channels] ${message.channel}:${message.accountId} - ${message.sessionId}`)
+    log.info(`${message.channel}:${message.accountId} - ${message.sessionId}`)
 
     try {
       const result = await handleChatMessage({
@@ -69,7 +72,7 @@ export async function startChannels(): Promise<void> {
         type: 'message',
       })
     } catch (err) {
-      console.error('[channels] Error handling message:', (err as Error).message)
+      log.error(`Error handling message: ${(err as Error).message}`)
       await channelManager.send(message.channel, message.sessionId, {
         content: 'Lo siento, ocurrió un error al procesar tu mensaje.',
         type: 'message',
@@ -80,5 +83,5 @@ export async function startChannels(): Promise<void> {
   await channelManager.initialize()
   await channelManager.startAll()
 
-  console.log('[channels] Channels initialized')
+  log.info('Channels initialized')
 }

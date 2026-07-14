@@ -1,6 +1,10 @@
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { createSchema } from "./db/schema";
+import { runSeed } from "./db/seed";
+import { createLogger } from "./utils/logger";
+
+const log = createLogger("procuraduria");
 import { fiscalesRoutes } from "./routes/fiscales";
 import { penalesRoutes } from "./routes/penales";
 import { disciplinariosRoutes } from "./routes/disciplinarios";
@@ -9,6 +13,11 @@ import { obrasRoutes } from "./routes/obras";
 import { searchRoutes } from "./routes/search";
 
 createSchema();
+
+// Auto-seed: la base no viaja por git ni en la imagen. Cada tabla del seed
+// se salta si ya tiene datos (inserciones transaccionales), así que esta
+// llamada es un no-op rápido cuando está cargada y repara cargas parciales.
+runSeed();
 
 const app = new Elysia()
   .use(
@@ -60,5 +69,5 @@ const app = new Elysia()
   .use(searchRoutes)
   .listen(Number(Bun.env.PORT ?? 3000));
 
-console.log(`API corriendo en http://localhost:${Bun.env.PORT ?? 3000}`);
-console.log(`Swagger:         http://localhost:${Bun.env.PORT ?? 3000}/swagger`);
+log.info(`API corriendo en http://localhost:${Bun.env.PORT ?? 3000}`);
+log.info(`Swagger disponible en http://localhost:${Bun.env.PORT ?? 3000}/swagger`);

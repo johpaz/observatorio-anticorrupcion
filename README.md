@@ -105,7 +105,13 @@ Desde la raíz del proyecto:
 docker compose up --build
 ```
 
-El stack levantará los contenedores del frontend, API, procuraduría y Hive Agents.
+El stack levanta los contenedores del frontend, API y procuraduría.
+
+Notas de despliegue:
+
+- Las bases SQLite **no viajan por git**: viven en volúmenes de directorio (`./data/api` y `./data/procuraduria`) que Docker crea solo. No montar archivos `.db` sueltos — con WAL activo los sidecars quedarían fuera del volumen.
+- **Primer arranque**: la procuraduría se auto-seedea desde los CSV incluidos (~1-2 min, 65 mil registros) y la API crea su esquema y precalcula las alertas por sector en segundo plano. No se requiere ningún paso manual.
+- Si un despliegue anterior creó un directorio-fantasma `anticorrup.db` en el host (síntoma: `SQLITE_CANTOPEN`), eliminarlo antes de levantar: `rm -rf anticorrup.db`.
 
 ## Variables de entorno
 
