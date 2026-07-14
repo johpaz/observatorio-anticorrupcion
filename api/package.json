@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "test": "bun test tests/scorer.test.ts && bun test tests/socrata-cache.test.ts && bun test tests/dashboard-cache.test.ts",
+    "test": "bun test tests/scorer.test.ts && bun test tests/socrata-cache.test.ts && bun test tests/dashboard-cache.test.ts && bun test tests/web-tools.test.ts",
     "test:e2e": "bun test tests/e2e.audit.test.ts"
   },
   "dependencies": {

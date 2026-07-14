@@ -9,11 +9,13 @@ import { dashboardRoutes } from './routes/dashboard'
 import { initDb } from './db/client'
 import { startChannels } from './channels'
 import { createLogger } from './utils/logger'
+import { initializeWebTools } from './chat/web-tools'
 
 const log = createLogger('api')
 
 initDb()
 startChannels().catch(err => log.error('Channel startup failed', err))
+initializeWebTools().catch(err => log.error('Web tools startup failed', err))
 
 // Red de seguridad: un error no capturado (p. ej. bajo degradación de Socrata)
 // no debe tumbar el proceso — se registra y el servidor sigue vivo.

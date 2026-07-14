@@ -92,15 +92,22 @@ export class CDPClient {
 
   // ── Launch ──────────────────────────────────────────────────────────────────
 
-  async launch(spec: LaunchSpec): Promise<void> {
+  async launch(spec: LaunchSpec, options: { headless?: boolean } = {}): Promise<void> {
     const commonArgs = [
       `--remote-debugging-port=${CDP_PORT}`,
       "--no-first-run",
       "--no-default-browser-check",
       "--disable-popup-blocking",
+      "--disable-dev-shm-usage",
       `--user-data-dir=${tmpdir()}/hive-browser-profile`,
-      "about:blank",
     ];
+
+    if (options.headless) commonArgs.push("--headless=new", "--disable-gpu");
+    // Chromium rechaza ejecutarse como root con el sandbox activo (caso Docker).
+    if (process.getuid?.() === 0 || process.env.BROWSER_NO_SANDBOX === "1") {
+      commonArgs.push("--no-sandbox");
+    }
+    commonArgs.push("about:blank");
 
     if (spec.kind === "native") {
       this.proc = Bun.spawn([spec.path, ...commonArgs], {
@@ -385,7 +392,7 @@ let _launching = false;
 export class BrowserService {
   private static instance: BrowserService | null = null;
 
-  private constructor(_config: Config) {}
+  private constructor(private readonly config: Config) {}
 
   static getInstance(config: Config): BrowserService {
     if (!BrowserService.instance) {
@@ -428,7 +435,9 @@ export class BrowserService {
     _launching = true;
     try {
       _client = new CDPClient();
-      await _client.launch(_spec);
+      await _client.launch(_spec, {
+        headless: this.config.tools?.browser?.headless ?? false,
+      });
       log.info("✅ Browser abierto — el usuario verá las acciones del agente");
       return true;
     } catch (err) {
