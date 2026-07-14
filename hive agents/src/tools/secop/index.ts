@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { join } from 'path'
+import type { Tool } from '../types.ts'
 
 const DB_PATH = join(import.meta.dir, '../../../../anticorrup.db')
 const SECOP_API = Bun.env.SECOP_API_URL ?? 'http://localhost:3001'
@@ -13,18 +14,19 @@ function openDb() {
   }
 }
 
-export const secopTools = [
+export const secopTools: Array<Tool & { category: string }> = [
   {
     name: 'buscar_contratista',
     description: 'Busca contratistas en SECOP II por nombre, NIT o entidad contratante. Usa búsqueda de texto completo sobre la base de datos de scores de riesgo.',
-    input_schema: {
+    category: 'secop',
+    parameters: {
       type: 'object' as const,
       properties: {
         query: { type: 'string', description: 'Nombre del contratista, NIT, o entidad' },
       },
       required: ['query'],
-    },
-    execute: async ({ query }: { query: string }) => {
+    } as const,
+    execute: async ({ query }: { query: string }, _config?: any) => {
       const db = openDb()
       if (!db) return { error: 'Base de datos no disponible' }
       try {
@@ -49,14 +51,15 @@ export const secopTools = [
   {
     name: 'obtener_score_riesgo',
     description: 'Obtiene el score de riesgo anticorrupción completo de un contratista dado su NIT. Incluye banderas de alerta y nivel de riesgo.',
-    input_schema: {
+    category: 'secop',
+    parameters: {
       type: 'object' as const,
       properties: {
         nit: { type: 'string', description: 'Número de Identificación Tributaria del contratista' },
       },
       required: ['nit'],
-    },
-    execute: async ({ nit }: { nit: string }) => {
+    } as const,
+    execute: async ({ nit }: { nit: string }, _config?: any) => {
       const db = openDb()
       if (!db) return { error: 'Base de datos no disponible' }
       const row = db.query(`SELECT * FROM scores WHERE nit = ?`).get(nit) as any
@@ -77,7 +80,8 @@ export const secopTools = [
   {
     name: 'alertas_sector',
     description: 'Lista los contratistas con mayor score de riesgo en un sector de contratación pública colombiana.',
-    input_schema: {
+    category: 'secop',
+    parameters: {
       type: 'object' as const,
       properties: {
         sector: { type: 'string', description: 'Sector SECOP II (ej: Transporte, Salud y Protección Social, Educación Nacional)' },
@@ -85,8 +89,8 @@ export const secopTools = [
         limit: { type: 'number', description: 'Número máximo de resultados (default 10)' },
       },
       required: ['sector'],
-    },
-    execute: async ({ sector, nivel, limit = 10 }: { sector: string; nivel?: string; limit?: number }) => {
+    } as const,
+    execute: async ({ sector, nivel, limit = 10 }: { sector: string; nivel?: string; limit?: number }, _config?: any) => {
       const db = openDb()
       if (!db) return { error: 'Base de datos no disponible' }
       const where = nivel ? 'sector = ? AND nivel_riesgo = ?' : 'sector = ?'
@@ -103,15 +107,16 @@ export const secopTools = [
   {
     name: 'contratos_contratista',
     description: 'Obtiene el historial de contratos SECOP II de un NIT con detalles de entidades, valores y estados.',
-    input_schema: {
+    category: 'secop',
+    parameters: {
       type: 'object' as const,
       properties: {
         nit: { type: 'string', description: 'NIT del contratista' },
         limit: { type: 'number', description: 'Número de contratos a retornar (default 20)' },
       },
       required: ['nit'],
-    },
-    execute: async ({ nit, limit = 20 }: { nit: string; limit?: number }) => {
+    } as const,
+    execute: async ({ nit, limit = 20 }: { nit: string; limit?: number }, _config?: any) => {
       const db = openDb()
       if (!db) return { error: 'Base de datos no disponible' }
       const rows = db.query(
@@ -126,14 +131,15 @@ export const secopTools = [
   {
     name: 'verificar_sanciones',
     description: 'Verifica si un NIT tiene antecedentes disciplinarios (Procuraduría), responsabilidades fiscales (CGR) o multas SECOP.',
-    input_schema: {
+    category: 'secop',
+    parameters: {
       type: 'object' as const,
       properties: {
         nit: { type: 'string', description: 'NIT del contratista' },
       },
       required: ['nit'],
-    },
-    execute: async ({ nit }: { nit: string }) => {
+    } as const,
+    execute: async ({ nit }: { nit: string }, _config?: any) => {
       try {
         const res = await fetch(`${PROCURADURIA_API}/persona/${encodeURIComponent(nit)}`, {
           signal: AbortSignal.timeout(5_000),
@@ -156,14 +162,15 @@ export const secopTools = [
   {
     name: 'calcular_score_nit',
     description: 'Solicita el cálculo del score de riesgo para un NIT directamente a la API SECOP. Útil cuando el NIT no está en caché.',
-    input_schema: {
+    category: 'secop',
+    parameters: {
       type: 'object' as const,
       properties: {
         nit: { type: 'string', description: 'NIT del contratista a evaluar' },
       },
       required: ['nit'],
-    },
-    execute: async ({ nit }: { nit: string }) => {
+    } as const,
+    execute: async ({ nit }: { nit: string }, _config?: any) => {
       try {
         const res = await fetch(`${SECOP_API}/api/contratista/${encodeURIComponent(nit)}?refresh=1`, {
           signal: AbortSignal.timeout(30_000),

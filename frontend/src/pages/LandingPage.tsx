@@ -98,7 +98,9 @@ export default function LandingPage() {
               <span className="bg-[#FEC82F] text-[#002D58] px-2 font-bold inline-block transform skew-x-[-2deg]">
                 TIEMPO REAL
               </span>{' '}
-              sobre {hero.contratos} contratos.
+              sobre {hero.contratos} contratos. Además, un agente conversacional impulsado por{' '}
+              <span className="font-bold text-[#004884]">Hive Agents</span>{' '}
+              te permite hablar con los datos, consultar contratistas, sectores y sanciones en lenguaje natural.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-6 border-t border-[#002D58]/10 mt-8">

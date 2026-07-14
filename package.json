@@ -1,7 +1,7 @@
 {
   "name": "observatorio-anticorrupcion",
   "version": "1.0.0",
-  "workspaces": ["api", "frontend", "APi Procuraduria, multas, sanciones y obras inconclusas"],
+  "workspaces": ["api", "frontend", "APi Procuraduria, multas, sanciones y obras inconclusas", "hive agents", "hive agents/packages/*"],
   "scripts": {
     "dev": "bun dev.ts",
     "build": "bun run --cwd frontend build",

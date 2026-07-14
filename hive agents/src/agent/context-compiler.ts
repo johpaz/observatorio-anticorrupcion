@@ -50,6 +50,13 @@ const MINIMAL_TOOLS = new Set([
   "notify",
   "report_progress",
   "search_knowledge",
+  // SECOP / Observatorio anticorrupción
+  "buscar_contratista",
+  "obtener_score_riesgo",
+  "alertas_sector",
+  "contratos_contratista",
+  "verificar_sanciones",
+  "calcular_score_nit",
 ])
 
 // MINIMAL SKILL SET — fixed always-available skills

@@ -32,6 +32,9 @@ import * as office from "./office/index.ts";
 // Meeting (4)
 import * as meeting from "./meeting/index.ts";
 
+// SECOP / Transparencia (6)
+import { secopTools } from "./secop/index.ts";
+
 /**
  * Creates all registered tools with proper configuration
  */
@@ -60,6 +63,9 @@ export function createAllTools(config: Config): Tool[] {
 
     // MEETING (4)
     ...meeting.createTools(),
+
+    // SECOP / Transparencia (6)
+    ...secopTools,
   ];
 }
 

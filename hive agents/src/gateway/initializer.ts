@@ -15,6 +15,7 @@ import { setMCPManager } from "../mcp/singleton";
 import { startMCPHotReload } from "../mcp/hot-reload";
 import { initializeBrowserService } from "../tools/web/browser-service";
 import { activateBrowserTools } from "../storage/onboarding";
+import { secopTools } from "../tools/secop/index.ts";
 
 const log = logger.child("gateway:init");
 
@@ -238,7 +239,7 @@ export async function initializeGateway(
     log.info("[initialize] Syncing FTS5 indexes (asynchronous & transactional)...")
     try {
       await Promise.all([
-        syncToolsToFTS(),
+        syncToolsToFTS(secopTools),
         syncSkillsToFTS(),
         syncPlaybookToFTS(),
         syncMCPToolsToFTS()

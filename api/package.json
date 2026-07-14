@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "elysia": "^1.1.27",
-    "@elysiajs/cors": "^1.1.1"
+    "@elysiajs/cors": "^1.1.1",
+    "@johpaz/hive-agents-core": "workspace:*"
   }
 }

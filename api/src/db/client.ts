@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { join } from 'path'
+import type { LLMMessage } from '@johpaz/hive-agents-core/agent/llm-client'
 
 export const DB_PATH = Bun.env.ANTICORRUP_DB_PATH ?? join(import.meta.dir, '../../../anticorrup.db')
 export const db = new Database(DB_PATH, { create: true })
@@ -84,4 +85,76 @@ export function initDb(): void {
     db.exec(`INSERT INTO scores_fts(scores_fts) VALUES('rebuild')`)
     db.exec(`INSERT INTO contratos_fts(contratos_fts) VALUES('rebuild')`)
   } catch { /* tables may not support rebuild if no content rows */ }
+
+  initChatHistory()
+}
+
+
+// ─── Chat history for the integrated agent ───────────────────────────────────
+
+export function initChatHistory(): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_history (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      thread_id       TEXT NOT NULL,
+      role            TEXT NOT NULL CHECK(role IN ('system','user','assistant','tool')),
+      content         TEXT NOT NULL,
+      tool_calls_json TEXT,
+      tool_call_id    TEXT,
+      created_at      INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_history_thread ON chat_history(thread_id);
+  `)
+}
+
+interface ChatHistoryRow {
+  id: number
+  thread_id: string
+  role: string
+  content: string
+  tool_calls_json: string | null
+  tool_call_id: string | null
+}
+
+export function loadChatHistory(threadId: string, limit = 20): LLMMessage[] {
+  const rows = db.query<ChatHistoryRow, [string, number]>(`
+    SELECT id, thread_id, role, content, tool_calls_json, tool_call_id
+    FROM chat_history
+    WHERE thread_id = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(threadId, limit)
+
+  const messages: LLMMessage[] = []
+  for (const row of rows.reverse()) {
+    const msg: LLMMessage = { role: row.role as LLMMessage['role'], content: row.content }
+    if (row.role === 'assistant' && row.tool_calls_json) {
+      try {
+        msg.tool_calls = JSON.parse(row.tool_calls_json)
+      } catch { /* ignore */ }
+    }
+    if (row.role === 'tool' && row.tool_call_id) {
+      msg.tool_call_id = row.tool_call_id
+    }
+    messages.push(msg)
+  }
+  return messages
+}
+
+export function saveChatMessage(
+  threadId: string,
+  role: LLMMessage['role'],
+  content: string,
+  extras?: { tool_calls?: unknown[]; tool_call_id?: string }
+): void {
+  db.query(`
+    INSERT INTO chat_history (thread_id, role, content, tool_calls_json, tool_call_id)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    threadId,
+    role,
+    content,
+    extras?.tool_calls ? JSON.stringify(extras.tool_calls) : null,
+    extras?.tool_call_id ?? null
+  )
 }

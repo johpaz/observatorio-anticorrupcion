@@ -6,8 +6,10 @@ import { alertasRoutes, warmupAlertas } from './routes/alertas'
 import { contratistaRoutes } from './routes/contratista'
 import { chatRoutes } from './routes/chat'
 import { initDb } from './db/client'
+import { startChannels } from './channels'
 
 initDb()
+startChannels().catch(err => console.error('[api] Channel startup failed:', err))
 
 // Red de seguridad: un error no capturado (p. ej. bajo degradación de Socrata)
 // no debe tumbar el proceso — se registra con timestamp y el servidor sigue vivo.

@@ -46,6 +46,7 @@ export interface ModelResponse {
     name: string
     args: Record<string, unknown>
   }>
+  reasoning?: string
   usage?: {
     promptTokens: number
     completionTokens: number
@@ -80,6 +81,7 @@ export class AgentRunner {
 
     let lastAgentContent = ""
     let accumulatedAgentContent = ""  // Accumulate content from all agent chunks
+    let accumulatedReasoning = ""  // Accumulate reasoning/thinking across turns
     let toolCalls: ModelResponse["toolCalls"] = []
     let totalInputTokens = 0
     let totalOutputTokens = 0
@@ -130,6 +132,13 @@ export class AgentRunner {
             if (options.onToken) options.onToken(content)
           } else {
             logger.debug(`[STREAM] No content in chunk, lastMsg.content is falsy`)
+          }
+
+          // Accumulate reasoning content if present
+          if ((lastMsg as any)?.reasoning_content) {
+            const reasoning = (lastMsg as any).reasoning_content as string
+            accumulatedReasoning += (accumulatedReasoning ? "\n" : "") + reasoning
+            logger.debug(`[STREAM] Accumulated reasoning: total length=${accumulatedReasoning.length}`)
           }
 
           if (hasToolCalls) {
@@ -185,6 +194,7 @@ export class AgentRunner {
       return {
         content: finalContent,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        reasoning: accumulatedReasoning || undefined,
         usage: {
           promptTokens: totalInputTokens,
           completionTokens: totalOutputTokens,

@@ -159,6 +159,16 @@ export class GeminiProvider implements LLMProvider {
       }]
     }
 
+    // Enable thinking/reasoning for Gemini 2.5+ and 3.x models when requested
+    const modelLower = options.model.toLowerCase()
+    const supportsThinking = modelLower.includes("2.5") || modelLower.includes("3.")
+    if (supportsThinking) {
+      config.thinkingConfig = {
+        includeThoughts: true,
+        thinkingBudget: options.thinking?.budget_tokens ?? 4096,
+      }
+    }
+
     log.info(`[llm-client] gemini/${options.model} — ${contents.length} turns, ${options.tools?.length ?? 0} tools`)
 
     const response = await ai.models.generateContent({ model: options.model, contents, config })
@@ -181,10 +191,17 @@ export class GeminiProvider implements LLMProvider {
     const parts: any[] = candidate?.content?.parts ?? []
 
     let content = ""
+    let reasoning_content = ""
     const tool_calls: LLMToolCall[] = []
 
     for (const part of parts) {
-      if (part.text) content += part.text
+      if (part.text) {
+        if (part.thought) {
+          reasoning_content += part.text
+        } else {
+          content += part.text
+        }
+      }
       if (part.functionCall) {
         tool_calls.push({
           id: crypto.randomUUID(),
@@ -203,6 +220,7 @@ export class GeminiProvider implements LLMProvider {
     const usageMeta = response.usageMetadata
     return {
       content,
+      reasoning_content: reasoning_content || undefined,
       tool_calls: tool_calls.length ? tool_calls : undefined,
       stop_reason,
       usage: usageMeta ? {

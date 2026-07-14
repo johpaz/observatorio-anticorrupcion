@@ -166,6 +166,7 @@ export async function* runAgent(
   let totalInputTokens = 0
   let totalOutputTokens = 0
   let finalContent = ""
+  let accumulatedReasoning = ""
   // Loop detection: track last tool call signature to break identical consecutive calls
   let lastToolSignature = ""
   let consecutiveRepeat = 0
@@ -193,9 +194,15 @@ export async function* runAgent(
       totalOutputTokens += response.usage.output_tokens
     }
 
+    // Accumulate reasoning across turns
+    if (response.reasoning_content) {
+      accumulatedReasoning += (accumulatedReasoning ? "\n" : "") + response.reasoning_content
+    }
+
     // Emit agent chunk (compatible with providers/index.ts)
     const agentMsg: any = { content: response.content }
     if (response.tool_calls?.length) agentMsg.tool_calls = response.tool_calls
+    if (response.reasoning_content) agentMsg.reasoning_content = response.reasoning_content
     yield { agent: { messages: [agentMsg] } }
 
     // Notify onStep for narration text
@@ -208,7 +215,10 @@ export async function* runAgent(
       finalContent = response.content?.trim() || ""
       // Only save to history if we have real content; empty → synthesis block will handle it
       if (finalContent && !opts.isolated) {
-        addMessage(opts.threadId, "assistant", finalContent)
+        addMessage(opts.threadId, "assistant", finalContent, {
+          channel: opts.channel,
+          reasoning_content: accumulatedReasoning || undefined,
+        })
       }
       break
     }
@@ -506,18 +516,27 @@ export async function* runAgent(
         totalInputTokens += synthesis.usage.input_tokens
         totalOutputTokens += synthesis.usage.output_tokens
       }
+      if (synthesis.reasoning_content) {
+        accumulatedReasoning += (accumulatedReasoning ? "\n" : "") + synthesis.reasoning_content
+      }
       finalContent = synthesis.content?.trim() || "He completado las tareas solicitadas."
       if (!opts.isolated) {
-        addMessage(opts.threadId, "assistant", finalContent)
+        addMessage(opts.threadId, "assistant", finalContent, {
+          channel: opts.channel,
+          reasoning_content: accumulatedReasoning || undefined,
+        })
       }
-      yield { agent: { messages: [{ content: finalContent }] } }
+      yield { agent: { messages: [{ content: finalContent, reasoning_content: accumulatedReasoning || undefined }] } }
     } catch (err) {
       log.warn(`[agent-loop] Synthesis call failed: ${(err as Error).message}`)
       finalContent = "He completado las tareas solicitadas."
       if (!opts.isolated) {
-        addMessage(opts.threadId, "assistant", finalContent)
+        addMessage(opts.threadId, "assistant", finalContent, {
+          channel: opts.channel,
+          reasoning_content: accumulatedReasoning || undefined,
+        })
       }
-      yield { agent: { messages: [{ content: finalContent }] } }
+      yield { agent: { messages: [{ content: finalContent, reasoning_content: accumulatedReasoning || undefined }] } }
     }
   }
 
@@ -663,7 +682,7 @@ export class AgentLoop {
       channel,
       systemPromptOverride,
       mcpManager: this.mcpManager,
-      userId,
+      userId: userId ?? undefined,
       signal: config.signal,
     })
   }

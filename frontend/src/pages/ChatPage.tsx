@@ -1,10 +1,40 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSeo } from '../utils/useSeo'
+import MarkdownRenderer from '../components/MarkdownRenderer'
+import ReasoningAccordion from '../components/ReasoningAccordion'
+
+interface ToolCallInfo {
+  id: string
+  name: string
+  args: Record<string, unknown>
+  result?: any
+}
+
+interface ReviewInfo {
+  approved: boolean
+  feedback: string
+  missing: string[]
+}
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
-  toolCalls?: { tool: string; result: any }[]
+  reasoning?: string
+  toolCalls?: ToolCallInfo[]
+  iterations?: number
+  review?: ReviewInfo
+  isStreaming?: boolean
+}
+
+interface ChatResponse {
+  success: boolean
+  thread_id: string
+  content?: string
+  reasoning?: string
+  tool_calls?: { id: string; name: string; args: Record<string, unknown>; result: any }[]
+  iterations?: number
+  review?: ReviewInfo
+  error?: string
 }
 
 const SUGERENCIAS = [
@@ -14,8 +44,9 @@ const SUGERENCIAS = [
   'Lista los contratistas ROJO del sector Salud y Protección Social',
 ]
 
-function ToolCallBadge({ call }: { call: { tool: string; result: any } }) {
+function ToolCallBadge({ call }: { call: ToolCallInfo }) {
   const [open, setOpen] = useState(false)
+  const hasResult = call.result !== undefined
   return (
     <div style={{ marginTop: 8, borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
       <button
@@ -27,7 +58,7 @@ function ToolCallBadge({ call }: { call: { tool: string; result: any } }) {
         }}
       >
         <span className="num" style={{ fontSize: 11, color: '#004884', fontWeight: 600 }}>
-          ⚙️ herramienta utilizada: {call.tool}
+          ⚙️ {call.name} {hasResult ? '✓' : '...'}
         </span>
         <span style={{ fontSize: 10, color: '#64748b' }}>{open ? '▲' : '▼'}</span>
       </button>
@@ -39,8 +70,30 @@ function ToolCallBadge({ call }: { call: { tool: string; result: any } }) {
           overflowX: 'auto', maxHeight: 240,
           borderTop: '1px solid #e2e8f0'
         }}>
-          {JSON.stringify(call.result, null, 2)}
+          {JSON.stringify({ args: call.args, result: call.result }, null, 2)}
         </pre>
+      )}
+    </div>
+  )
+}
+
+function ReviewBadge({ review }: { review: ReviewInfo }) {
+  return (
+    <div style={{
+      marginTop: 8,
+      borderRadius: 8,
+      border: `1px solid ${review.approved ? '#86efac' : '#fde047'}`,
+      background: review.approved ? '#f0fdf4' : '#fefce8',
+      padding: '10px 14px',
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: review.approved ? '#166534' : '#854d0e' }}>
+        {review.approved ? '✅ Revisión aprobada' : '⚠️ Revisión rechazada'}
+      </div>
+      <div style={{ fontSize: 11, color: '#334155', marginTop: 4 }}>{review.feedback}</div>
+      {review.missing.length > 0 && (
+        <ul style={{ fontSize: 11, color: '#334155', margin: '4px 0 0 16px', padding: 0 }}>
+          {review.missing.map((m, i) => <li key={i}>{m}</li>)}
+        </ul>
       )}
     </div>
   )
@@ -68,15 +121,36 @@ function Bubble({ msg }: { msg: Message }) {
         padding: '12px 16px',
         fontSize: 13.5,
         lineHeight: 1.6,
-        whiteSpace: 'pre-wrap',
         boxShadow: isUser ? '0 4px 14px rgba(0, 72, 132, 0.15)' : '0 4px 20px rgba(0, 72, 132, 0.03)',
       }}>
-        {msg.content}
+        {isUser ? (
+          <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+        ) : (
+          <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+        )}
       </div>
+      {!isUser && msg.reasoning && (
+        <div style={{ maxWidth: '85%', width: '100%' }}>
+          <ReasoningAccordion reasoning={msg.reasoning} />
+        </div>
+      )}
+      {!isUser && msg.iterations !== undefined && (
+        <div style={{ maxWidth: '85%', fontSize: 10, color: '#64748b' }}>
+          Iteraciones: {msg.iterations}
+        </div>
+      )}
+      {!isUser && msg.review && (
+        <div style={{ maxWidth: '85%', width: '100%' }}>
+          <ReviewBadge review={msg.review} />
+        </div>
+      )}
       {msg.toolCalls && msg.toolCalls.length > 0 && (
         <div style={{ maxWidth: '85%', width: '100%' }}>
           {msg.toolCalls.map((tc, i) => <ToolCallBadge key={i} call={tc} />)}
         </div>
+      )}
+      {!isUser && msg.isStreaming && (
+        <div style={{ fontSize: 10, color: '#64748b' }}>Pensando...</div>
       )}
     </div>
   )
@@ -87,38 +161,198 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [threadId, setThreadId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  async function callChatEndpoint(msg: string): Promise<void> {
+    abortRef.current = new AbortController()
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+      body: JSON.stringify({
+        message: msg,
+        thread_id: threadId ?? undefined,
+        channel: 'webchat',
+        mode: 'task',
+        stream: true,
+      }),
+      signal: abortRef.current.signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text()
+      let errorMsg = `${res.status} ${res.statusText}`
+      try {
+        const json = JSON.parse(text) as ChatResponse
+        errorMsg = json.error ?? errorMsg
+      } catch { /* ignore */ }
+      throw new Error(errorMsg)
+    }
+
+    if (!res.body) throw new Error('Respuesta vacía del servidor')
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let currentThreadId = threadId
+    let currentToolCalls: ToolCallInfo[] = []
+    let currentReview: ReviewInfo | undefined
+    let currentIterations = 0
+    let finalContent = ''
+    let finalReasoning: string | undefined
+
+    const updateAssistant = () => {
+      setMessages(prev => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant') {
+          next[next.length - 1] = {
+            ...last,
+            content: finalContent || last.content,
+            reasoning: finalReasoning ?? last.reasoning,
+            toolCalls: currentToolCalls.length > 0 ? currentToolCalls : last.toolCalls,
+            iterations: currentIterations || last.iterations,
+            review: currentReview ?? last.review,
+            isStreaming: true,
+          }
+        }
+        return next
+      })
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      let eventName = ''
+      let eventData = ''
+
+      for (const line of lines) {
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim()
+          eventData = ''
+        } else if (line.startsWith('data:')) {
+          eventData = line.slice(5).trim()
+        } else if (line.trim() === '' && eventName && eventData) {
+          try {
+            const data = JSON.parse(eventData)
+            switch (eventName) {
+              case 'thread':
+                if (data.thread_id) {
+                  currentThreadId = data.thread_id
+                  setThreadId(data.thread_id)
+                }
+                break
+              case 'iteration':
+                currentIterations = data.iteration
+                updateAssistant()
+                break
+              case 'tool_call':
+                currentToolCalls.push({
+                  id: data.id,
+                  name: data.name,
+                  args: data.args,
+                })
+                updateAssistant()
+                break
+              case 'tool_result':
+                currentToolCalls = currentToolCalls.map(tc =>
+                  tc.id === data.id ? { ...tc, result: data.result } : tc
+                )
+                updateAssistant()
+                break
+              case 'worker_done':
+                finalContent = data.content
+                updateAssistant()
+                break
+              case 'review':
+                currentReview = data
+                updateAssistant()
+                break
+              case 'coordinator_done':
+                finalContent = data.content
+                finalReasoning = data.reasoning
+                updateAssistant()
+                break
+              case 'done':
+                finalContent = data.content
+                finalReasoning = data.reasoning
+                currentIterations = data.iterations
+                currentReview = data.review
+                if (data.thread_id) {
+                  currentThreadId = data.thread_id
+                  setThreadId(data.thread_id)
+                }
+                break
+              case 'error':
+                throw new Error(data.error)
+            }
+          } catch (err) {
+            console.error('Error parsing SSE event:', err, eventName, eventData)
+          }
+          eventName = ''
+          eventData = ''
+        }
+      }
+    }
+
+    setMessages(prev => {
+      const next = [...prev]
+      const last = next[next.length - 1]
+      if (last && last.role === 'assistant') {
+        next[next.length - 1] = {
+          ...last,
+          content: finalContent || last.content,
+          reasoning: finalReasoning ?? last.reasoning,
+          toolCalls: currentToolCalls.length > 0 ? currentToolCalls : last.toolCalls,
+          iterations: currentIterations || last.iterations,
+          review: currentReview ?? last.review,
+          isStreaming: false,
+        }
+      }
+      return next
+    })
+  }
 
   async function send(text?: string) {
     const msg = (text ?? input).trim()
     if (!msg || loading) return
     setInput('')
     setMessages(prev => [...prev, { role: 'user', content: msg }])
+    setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }])
     setLoading(true)
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg }),
+      await callChatEndpoint(msg)
+    } catch (err) {
+      setMessages(prev => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant') {
+          next[next.length - 1] = {
+            ...last,
+            content: `Error al conectar con el agente: ${(err as Error).message}. Verifica que el servicio esté activo.`,
+            isStreaming: false,
+          }
+        }
+        return next
       })
-      const data = await res.json() as { answer: string; tool_calls: any[] }
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.answer,
-        toolCalls: data.tool_calls ?? [],
-      }])
-    } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Error al conectar con el agente. Verifique que la API esté activa y respondiendo.',
-      }])
     } finally {
       setLoading(false)
+      abortRef.current = null
     }
   }
 
@@ -133,7 +367,7 @@ export default function ChatPage() {
         </h1>
         <p className="text-sm text-slate-650 mt-1">
           Consulta scores de riesgo, contratistas, sanciones y obras inconclusas en lenguaje natural.
-          Respaldado por SQLite FTS5 + Procuraduría API.
+          Por debajo corre <span className="font-semibold text-[#004884]">Hive Agents</span>: un loop colaborativo (worker → reviewer → coordinator) que habla con los datos de SECOP II y la Procuraduría.
         </p>
       </div>
 
@@ -154,7 +388,7 @@ export default function ChatPage() {
 
         {messages.map((m, i) => <Bubble key={i} msg={m} />)}
 
-        {loading && (
+        {loading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex items-center gap-3 animate-pulse">
             <div className="smcaps text-[10px] text-slate-500 font-bold">Agente Inteligente</div>
             <div className="flex gap-1.5 items-center">

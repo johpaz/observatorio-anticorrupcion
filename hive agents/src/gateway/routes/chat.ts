@@ -31,6 +31,8 @@ export interface ChatResponse {
   success: boolean;
   thread_id: string;
   content?: string;
+  reasoning?: string;
+  tool_calls?: any[];
   error?: string;
 }
 
@@ -107,6 +109,8 @@ export async function handleChat(
     const runner = new AgentRunner({} as any);
 
     let responseContent = "";
+    let responseReasoning: string | null = null;
+    let responseToolCalls: any[] = [];
     let responseError: string | null = null;
 
     // Enqueue in lane queue for processing
@@ -136,6 +140,8 @@ export async function handleChat(
         });
 
         responseContent = response.content?.trim() || "Task completed.";
+        responseReasoning = response.reasoning?.trim() || null;
+        responseToolCalls = response.toolCalls || [];
         log.info(`[chat] Response generated: ${responseContent.substring(0, 100)}...`);
 
       } catch (error) {
@@ -173,12 +179,18 @@ export async function handleChat(
       );
     }
 
+    const responseBody: ChatResponse = {
+      success: true,
+      thread_id: threadId,
+      content: responseContent,
+    };
+    if (responseReasoning) responseBody.reasoning = responseReasoning;
+    if (responseToolCalls.length > 0) {
+      responseBody.tool_calls = responseToolCalls;
+    }
+
     return addCorsHeaders(
-      Response.json({
-        success: true,
-        thread_id: threadId,
-        content: responseContent,
-      }),
+      Response.json(responseBody),
       req
     );
 

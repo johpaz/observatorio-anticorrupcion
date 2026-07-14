@@ -8,6 +8,9 @@ services:
       - n8n_evoapi
 
   api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     image: johpaz/secop-api:latest
     depends_on:
       - procuraduria
@@ -17,22 +20,13 @@ services:
       - CACHE_TTL=300
       - PROCURADURIA_URL=http://procuraduria:3000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - HIVE_HOME=/app/hive-data
+      - HIVE_MASTER_KEY=${HIVE_MASTER_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
     volumes:
       - ./anticorrup.db:/app/anticorrup.db
-    restart: unless-stopped
-    networks:
-      - n8n_evoapi
-
-  hive:
-    image: johpaz/secop-hive:latest
-    depends_on:
-      - api
-      - procuraduria
-    environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - SECOP_API_URL=http://api:3001
-      - PROCURADURIA_URL=http://procuraduria:3000
-      - PORT=4000
+      - ./hive-data:/app/hive-data
     restart: unless-stopped
     networks:
       - n8n_evoapi
