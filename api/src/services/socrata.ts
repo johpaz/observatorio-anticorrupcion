@@ -14,6 +14,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>()
+const inFlight = new Map<string, Promise<unknown[]>>()
 const TTL = Number(Bun.env.CACHE_TTL ?? 300) * 1000
 
 export async function socrataQuery(
@@ -26,6 +27,13 @@ export async function socrataQuery(
   const cached = cache.get(key)
   if (cached && cached.expires > now) return cached.data
 
+  const persisted = db.query<{ data: string; updated_at: number }, [string]>(
+    `SELECT data, updated_at FROM socrata_cache WHERE key = ?`
+  ).get(key)
+
+  const pending = inFlight.get(key)
+  if (pending) return persisted ? JSON.parse(persisted.data) as unknown[] : pending
+
   const url = new URL(BASES[dataset])
   for (const [k, v] of Object.entries(params)) {
     if (v) url.searchParams.set(k, v)
@@ -33,33 +41,45 @@ export async function socrataQuery(
   const token = Bun.env.SOCRATA_APP_TOKEN
   if (token) url.searchParams.set('$$app_token', token)
 
-  try {
-    // 45s: los agregados de datos.gov.co fluctúan entre 5s y 40s según su carga;
-    // debe ser menor que el idleTimeout del servidor (60s en index.ts)
-    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(45_000) })
-    if (!res.ok) throw new Error(`Socrata ${res.status}: ${await res.text()}`)
+  const request = (async () => {
+    try {
+      // Los agregados grandes de datos.gov.co pueden tardar varios minutos.
+      // El servidor no aplica idle timeout para permitir que esta espera complete.
+      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(300_000) })
+      if (!res.ok) throw new Error(`Socrata ${res.status}: ${await res.text()}`)
 
-    const data = (await res.json()) as unknown[]
-    cache.set(key, { data, expires: now + TTL })
-    // Copia persistente: respaldo local cuando datos.gov.co se degrada
-    db.prepare(`INSERT OR REPLACE INTO socrata_cache (key, data, updated_at) VALUES (?, ?, unixepoch())`)
-      .run(key, JSON.stringify(data))
-    return data
-  } catch (err) {
-    // Socrata caído o lento: servir la última copia local en vez de fallar
-    const stale = db.query<{ data: string; updated_at: number }, [string]>(
-      `SELECT data, updated_at FROM socrata_cache WHERE key = ?`
-    ).get(key)
-    if (stale) {
-      log.warn(
-        `fuente degradada — sirviendo copia local de ${dataset} ` +
-        `(actualizada ${new Date(stale.updated_at * 1000).toISOString()}): ${String(err)}`
-      )
-      const data = JSON.parse(stale.data) as unknown[]
-      // Se cachea en memoria para no martillar a Socrata mientras dura la caída
+      const data = (await res.json()) as unknown[]
       cache.set(key, { data, expires: now + TTL })
+      // Copia persistente: respaldo local cuando datos.gov.co se degrada
+      db.prepare(`INSERT OR REPLACE INTO socrata_cache (key, data, updated_at) VALUES (?, ?, unixepoch())`)
+        .run(key, JSON.stringify(data))
       return data
+    } catch (err) {
+      // Socrata caído o lento: servir la última copia local en vez de fallar
+      const stale = db.query<{ data: string; updated_at: number }, [string]>(
+        `SELECT data, updated_at FROM socrata_cache WHERE key = ?`
+      ).get(key)
+      if (stale) {
+        log.warn(
+          `fuente degradada — sirviendo copia local de ${dataset} ` +
+          `(actualizada ${new Date(stale.updated_at * 1000).toISOString()}): ${String(err)}`
+        )
+        const data = JSON.parse(stale.data) as unknown[]
+        // Se cachea en memoria para no martillar a Socrata mientras dura la caída
+        cache.set(key, { data, expires: now + TTL })
+        return data
+      }
+      throw err
     }
-    throw err
+  })().finally(() => inFlight.delete(key))
+
+  inFlight.set(key, request)
+  if (persisted) {
+    const data = JSON.parse(persisted.data) as unknown[]
+    cache.set(key, { data, expires: now + TTL })
+    // Stale-while-revalidate: la copia local responde sin esperar a Socrata.
+    void request
+    return data
   }
+  return request
 }

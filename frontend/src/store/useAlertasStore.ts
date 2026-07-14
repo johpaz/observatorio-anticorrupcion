@@ -8,7 +8,7 @@ export interface AlertasFilters {
 export const ALERTAS_INITIAL: AlertasFilters = { sector: 'Transporte' }
 
 interface CacheEntry { data: AlertasResponse; ts: number }
-const CACHE_TTL = 5 * 60 * 1000
+const CACHE_TTL = 15 * 60 * 1000
 
 interface Store {
   filters: AlertasFilters

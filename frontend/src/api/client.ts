@@ -1,23 +1,70 @@
 const API_BASE = '/api'
+const DASHBOARD_CACHE_TTL = 15 * 60 * 1000
 
-async function fetchData(endpoint: string, params: Record<string, string> = {}, retries = 2): Promise<any> {
+interface ClientCacheEntry {
+  data: unknown
+  updatedAt: number
+}
+
+const responseCache = new Map<string, ClientCacheEntry>()
+const inFlight = new Map<string, Promise<unknown>>()
+
+async function requestData(url: string, endpoint: string, retries: number): Promise<any> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Error ${res.status} en ${endpoint}`)
+    return await res.json()
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, retries === 2 ? 800 : 2000))
+      return requestData(url, endpoint, retries - 1)
+    }
+    throw err
+  }
+}
+
+async function fetchData(
+  endpoint: string,
+  params: Record<string, string> = {},
+  retries = 2,
+  shared = false,
+): Promise<any> {
   const url = new URL(`${window.location.origin}${API_BASE}${endpoint}`)
   for (const [k, v] of Object.entries(params)) {
     if (v !== '' && v != null) url.searchParams.set(k, v)
   }
-  try {
-    const res = await fetch(url.toString())
-    if (!res.ok) throw new Error(`Error ${res.status} en ${endpoint}`)
-    return await res.json()
-  } catch (err) {
-    // Reintentos con backoff (0.8s, 2s): cubren reinicios del API en dev (--watch)
-    // y microcortes del proxy sin que el usuario vea el error
-    if (retries > 0) {
-      await new Promise(r => setTimeout(r, retries === 2 ? 800 : 2000))
-      return fetchData(endpoint, params, retries - 1)
-    }
-    throw err
+  const key = url.toString()
+  const forceRefresh = params.refresh === '1'
+  const sharedUrl = new URL(url)
+  sharedUrl.searchParams.delete('refresh')
+  const sharedKey = sharedUrl.toString()
+  if (shared && !forceRefresh) {
+    const cached = responseCache.get(sharedKey)
+    if (cached && Date.now() - cached.updatedAt < DASHBOARD_CACHE_TTL) return cached.data
   }
+
+  const pending = inFlight.get(sharedKey)
+  if (shared && pending) return pending
+
+  const request = requestData(key, endpoint, retries).then(data => {
+    if (shared) {
+      responseCache.set(sharedKey, {
+        data,
+        // La vigencia del cliente empieza cuando recibe la respuesta. La edad de
+        // la fuente se administra de forma independiente en el caché del API.
+        updatedAt: Date.now(),
+      })
+    }
+    return data
+  }).finally(() => inFlight.delete(sharedKey))
+
+  if (shared) inFlight.set(sharedKey, request)
+  return request
+}
+
+export function clearDashboardRequestCache(): void {
+  responseCache.clear()
+  inFlight.clear()
 }
 
 export interface ContratosMetadata {
@@ -31,6 +78,31 @@ export interface ContratosMetadata {
 export interface ArchivosMetadata {
   years: number[]
   entidades: string[]
+}
+
+export interface ContratosDashboardData {
+  kpis: any
+  porSector: any[]
+  porTipo: any[]
+  porMes: any[]
+  porDepto: any[]
+  porEstado: any[]
+  list: any[]
+}
+
+export interface ArchivosDashboardData {
+  kpis: any
+  porExtension: any[]
+  porMes: any[]
+  porEntidad: any[]
+  list: any[]
+}
+
+export interface CachedDashboardResponse<T> {
+  data: T
+  cache_status: 'fresh' | 'stale'
+  updated_at: string
+  refreshing: boolean
 }
 
 export const contratosApi = {
@@ -72,6 +144,35 @@ export interface AlertasResponse {
   sector: string
   nivel: string | null
   generated_at: string
+}
+
+export interface DashboardBootstrap {
+  home: {
+    contratos: Record<string, unknown>
+    alertas: Record<string, unknown>
+  }
+  contratos: { metadata: ContratosMetadata; data: ContratosDashboardData }
+  archivos: { metadata: ArchivosMetadata; data: ArchivosDashboardData }
+  alertas: {
+    sectores: string[]
+    stats: Record<string, unknown>
+    data: AlertasResponse
+  }
+}
+
+export const dashboardApi = {
+  bootstrap: (refresh = false): Promise<CachedDashboardResponse<DashboardBootstrap>> =>
+    fetchData('/dashboard/bootstrap', refresh ? { refresh: '1' } : {}, 2, true),
+  contratos: (
+    params: Record<string, string>,
+    refresh = false,
+  ): Promise<CachedDashboardResponse<ContratosDashboardData>> =>
+    fetchData('/contratos/dashboard', refresh ? { ...params, refresh: '1' } : params, 2, true),
+  archivos: (
+    params: Record<string, string>,
+    refresh = false,
+  ): Promise<CachedDashboardResponse<ArchivosDashboardData>> =>
+    fetchData('/archivos/dashboard', refresh ? { ...params, refresh: '1' } : params, 2, true),
 }
 
 export interface ContratoSummary {

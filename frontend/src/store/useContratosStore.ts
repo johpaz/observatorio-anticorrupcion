@@ -32,7 +32,7 @@ const EMPTY_DATA: DashboardData = {
   kpis: {}, porSector: [], porTipo: [], porMes: [], porDepto: [], porEstado: [], list: [],
 }
 
-const CACHE_TTL = 5 * 60 * 1000
+const CACHE_TTL = 15 * 60 * 1000
 
 interface Store {
   metadata: ContratosMetadata | null

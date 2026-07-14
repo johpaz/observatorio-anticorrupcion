@@ -1,5 +1,5 @@
 /**
- * Tests del caché del lado cliente (Zustand): TTL de 5 min para alertas
+ * Tests del caché del lado cliente (Zustand): TTL de 15 min para alertas
  * y 10 min para perfiles de contratista.
  */
 import { describe, test, expect, beforeEach, setSystemTime } from 'bun:test'
@@ -15,7 +15,7 @@ beforeEach(() => {
   useContratistasStore.setState({ cache: new Map(), loading: false })
 })
 
-describe('useAlertasStore (TTL 5 min)', () => {
+describe('useAlertasStore (TTL 15 min)', () => {
   test('devuelve datos frescos dentro del TTL y null después', () => {
     const t0 = new Date('2026-07-12T10:00:00Z')
     setSystemTime(t0)
@@ -24,10 +24,10 @@ describe('useAlertasStore (TTL 5 min)', () => {
     useAlertasStore.getState().saveToCache(key, alertasData)
     expect(useAlertasStore.getState().getFromCache(key)).toEqual(alertasData)
 
-    setSystemTime(new Date(t0.getTime() + 4 * 60 * 1000)) // 4 min: vigente
+    setSystemTime(new Date(t0.getTime() + 14 * 60 * 1000)) // 14 min: vigente
     expect(useAlertasStore.getState().getFromCache(key)).toEqual(alertasData)
 
-    setSystemTime(new Date(t0.getTime() + 6 * 60 * 1000)) // 6 min: expirado
+    setSystemTime(new Date(t0.getTime() + 16 * 60 * 1000)) // 16 min: expirado
     expect(useAlertasStore.getState().getFromCache(key)).toBeNull()
   })
 

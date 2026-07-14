@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSeo } from '../utils/useSeo'
 import { formatCOP } from '../utils/formatters'
+import { dashboardApi } from '../api/client'
 
 const FLAGS = [
   { code: 'VENCIDOS_SIN_CERRAR(n)', pts: '+25 c/u · máx 75', desc: 'Contratos con estado "En ejecución" cuya fecha de fin venció hace más de 6 meses sin liquidar.' },
@@ -43,23 +44,22 @@ export default function LandingPage() {
 
   useEffect(() => {
     let alive = true
-    Promise.allSettled([
-      fetch('/api/contratos/kpis').then(r => (r.ok ? r.json() : Promise.reject(r.status))),
-      fetch('/api/alertas/stats').then(r => (r.ok ? r.json() : Promise.reject(r.status))),
-    ]).then(([kpis, stats]) => {
+    dashboardApi.bootstrap().then(({ data }) => {
       if (!alive) return
+      const kpis = data.home.contratos as any
+      const stats = data.home.alertas as any
       setHero(prev => ({
-        valor: kpis.status === 'fulfilled' && kpis.value.valor_total
-          ? formatCOP(kpis.value.valor_total).replace(/\s/g, '')
+        valor: kpis.valor_total
+          ? formatCOP(kpis.valor_total).replace(/\s/g, '')
           : prev.valor,
-        contratos: kpis.status === 'fulfilled' && kpis.value.total
-          ? compact(Number(kpis.value.total))
+        contratos: kpis.total
+          ? compact(Number(kpis.total))
           : prev.contratos,
-        rojas: stats.status === 'fulfilled' && Number(stats.value.rojos) > 0
-          ? Number(stats.value.rojos).toLocaleString('es-CO')
+        rojas: Number(stats.rojos) > 0
+          ? Number(stats.rojos).toLocaleString('es-CO')
           : prev.rojas,
       }))
-    })
+    }).catch(() => {})
     return () => { alive = false }
   }, [])
 

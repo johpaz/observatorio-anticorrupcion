@@ -48,6 +48,12 @@ export function initDb(): void {
       data       TEXT NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
+
+    CREATE TABLE IF NOT EXISTS dashboard_cache (
+      key        TEXT PRIMARY KEY,
+      data       TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
   `)
 
   // FTS5 virtual tables for full-text search (content tables rebuild on startup)

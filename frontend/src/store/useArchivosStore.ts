@@ -27,7 +27,7 @@ const EMPTY_DATA: DashboardData = {
   kpis: {}, porExtension: [], porMes: [], porEntidad: [], list: [],
 }
 
-const CACHE_TTL = 5 * 60 * 1000
+const CACHE_TTL = 15 * 60 * 1000
 
 interface Store {
   metadata: ArchivosMetadata | null

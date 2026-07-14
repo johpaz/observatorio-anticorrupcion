@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import SemaforoCard from '../components/SemaforoCard'
 import BarChartComponent from '../components/charts/BarChartComponent'
 import PieChartComponent from '../components/charts/PieChartComponent'
-import { alertasApi } from '../api/client'
+import { alertasApi, dashboardApi } from '../api/client'
 import type { ScoreResult, AlertasDesglose } from '../api/client'
 import { useAlertasStore, alertasCacheKey } from '../store/useAlertasStore'
 import { useSeo } from '../utils/useSeo'
@@ -373,28 +373,37 @@ export default function AlertasPage() {
   // Sectores reales del dataset (ordenados por volumen); si falla queda el respaldo
   useEffect(() => {
     let alive = true
-    alertasApi.sectores()
-      .then(s => { if (alive && s.length > 0) setSectores(s) })
+    dashboardApi.bootstrap()
+      .then(({ data }) => {
+        const values = data.alertas.sectores
+        if (alive && values.length > 0) setSectores(values)
+      })
       .catch(() => {})
     return () => { alive = false }
   }, [])
   // Sectores con datos previos que ya programaron su auto-actualización (una vez por montaje)
   const staleRetried = useRef(new Set<string>())
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     const key = alertasCacheKey(filters)
-    const cached = getFromCache(key)
+    const cached = forceRefresh ? null : getFromCache(key)
     if (cached) { setData(cached); return }
     setLoading(true)
     try {
-      const d = await alertasApi.get({ sector: filters.sector, limit: '30' })
+      const bootstrap = await dashboardApi.bootstrap()
+      const bootstrapAlertas = bootstrap.data.alertas.data
+      const d = forceRefresh
+        ? await alertasApi.get({ sector: filters.sector, limit: '30', refresh: '1' })
+        : filters.sector === bootstrapAlertas.sector
+          ? bootstrapAlertas
+          : await alertasApi.get({ sector: filters.sector, limit: '30' })
       setData(d)
       saveToCache(key, d)
       // Datos previos: el API ya está recalculando en segundo plano — recoger
       // el resultado fresco automáticamente en ~30s (una sola vez por sector)
       if (d.stale && !staleRetried.current.has(key)) {
         staleRetried.current.add(key)
-        setTimeout(() => { clearCache(key); loadData() }, 30_000)
+        setTimeout(() => { clearCache(key); void loadData() }, 30_000)
       }
     } catch (err) {
       console.error(err)
@@ -403,11 +412,14 @@ export default function AlertasPage() {
     }
   }, [filters, getFromCache, saveToCache, clearCache, setData, setLoading])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { void loadData() }, [loadData])
 
   // ¿Los datos visibles corresponden al sector seleccionado?
   const dataMatchesSector = data?.sector === filters.sector
-  const allScores = dataMatchesSector ? data?.scores ?? [] : []
+  const allScores = useMemo(
+    () => dataMatchesSector ? data?.scores ?? [] : [],
+    [data, dataMatchesSector],
+  )
 
   const counts: Record<Nivel, number> = {
     ROJO:     allScores.filter(s => s.nivel_riesgo === 'ROJO').length,
@@ -422,7 +434,7 @@ export default function AlertasPage() {
     return rows
   }, [allScores, nivelFiltro, busqueda])
 
-  const valorSector = useMemo(() => allScores.length, [allScores])
+  const valorSector = allScores.length
 
   const cambiarSector = (sector: string) => {
     setFilters({ sector })
@@ -432,7 +444,7 @@ export default function AlertasPage() {
 
   const handleRefresh = () => {
     clearCache(alertasCacheKey(filters))
-    loadData()
+    void loadData(true)
   }
 
   const toggleNivel = (nivel: Nivel) =>

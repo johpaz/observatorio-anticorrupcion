@@ -18,7 +18,7 @@ initDb()
 const { socrataQuery } = await import('../src/services/socrata')
 
 let fetchCalls: string[] = []
-let nextResponse: () => Response = () => Response.json([{ ok: true }])
+let nextResponse: () => Response | Promise<Response> = () => Response.json([{ ok: true }])
 
 globalThis.fetch = (async (url: any) => {
   fetchCalls.push(String(url))
@@ -44,6 +44,25 @@ describe('Caché Socrata en memoria', () => {
     await socrataQuery('contratos', { $limit: '5', $where: `sector='A-${stamp}'` })
     await socrataQuery('contratos', { $limit: '5', $where: `sector='B-${stamp}'` })
     expect(fetchCalls).toHaveLength(2)
+  })
+
+  test('consultas concurrentes idénticas comparten una sola petición en curso', async () => {
+    const params = { $limit: '5', $where: `sector='FLIGHT-${Date.now()}'` }
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    nextResponse = async () => {
+      await gate
+      return Response.json([{ shared: true }])
+    }
+
+    const requests = Array.from({ length: 10 }, () => socrataQuery('contratos', params))
+    await Bun.sleep(10)
+    expect(fetchCalls).toHaveLength(1)
+    release()
+
+    const results = await Promise.all(requests)
+    expect(results.every(result => (result[0] as any).shared)).toBe(true)
+    expect(fetchCalls).toHaveLength(1)
   })
 
   test('expirado el TTL se vuelve a consultar la fuente', async () => {

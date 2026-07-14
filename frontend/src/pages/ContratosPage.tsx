@@ -5,7 +5,7 @@ import BarChartComponent from '../components/charts/BarChartComponent'
 import LineChartComponent from '../components/charts/LineChartComponent'
 import PieChartComponent from '../components/charts/PieChartComponent'
 import DataTable from '../components/DataTable'
-import { contratosApi } from '../api/client'
+import { dashboardApi } from '../api/client'
 import { formatCOP, formatNumber, formatDate } from '../utils/formatters'
 import { useContratosStore, CONTRATOS_INITIAL, cacheKey } from '../store/useContratosStore'
 import { useSeo } from '../utils/useSeo'
@@ -29,14 +29,12 @@ export default function ContratosPage() {
     getFromCache, saveToCache,
   } = useContratosStore()
 
-  // Metadata: solo una vez en toda la sesion
-  useEffect(() => {
-    if (metadataLoaded) return
-    contratosApi.metadata().then(setMetadata).catch(console.error)
-  }, [metadataLoaded, setMetadata])
-
   const loadData = useCallback(async () => {
     const key = cacheKey(filters, page)
+
+    // El bootstrap es una sola promesa compartida por Home y todos los tableros.
+    const bootstrap = await dashboardApi.bootstrap()
+    if (!metadataLoaded) setMetadata(bootstrap.data.contratos.metadata)
 
     // Devolver datos del cache si estan frescos
     const cached = getFromCache(key)
@@ -48,16 +46,10 @@ export default function ContratosPage() {
     setLoading(true)
     try {
       const f = filters as Record<string, string>
-      const [kpis, porSector, porTipo, porMes, porDepto, porEstado, list] = await Promise.all([
-        contratosApi.kpis(f),
-        contratosApi.porSector(f),
-        contratosApi.porTipo(f),
-        contratosApi.porMes({ year: filters.year }),
-        contratosApi.porDepartamento(f),
-        contratosApi.porEstado(f),
-        contratosApi.list({ ...f, page: String(page), limit: '20' }),
-      ])
-      const newData = { kpis, porSector, porTipo, porMes, porDepto, porEstado, list }
+      const isDefault = page === 1 && Object.values(f).every(value => value === '')
+      const newData = isDefault
+        ? bootstrap.data.contratos.data
+        : (await dashboardApi.contratos({ ...f, page: String(page), limit: '20' })).data
       setData(newData)
       saveToCache(key, newData)
     } catch (err) {
@@ -65,7 +57,7 @@ export default function ContratosPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, page, getFromCache, saveToCache, setData, setLoading])
+  }, [filters, page, metadataLoaded, getFromCache, saveToCache, setData, setLoading, setMetadata])
 
   useEffect(() => { loadData() }, [loadData])
 

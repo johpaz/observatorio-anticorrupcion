@@ -5,6 +5,7 @@ import { archivosRoutes } from './routes/archivos'
 import { alertasRoutes, warmupAlertas } from './routes/alertas'
 import { contratistaRoutes } from './routes/contratista'
 import { chatRoutes } from './routes/chat'
+import { dashboardRoutes } from './routes/dashboard'
 import { initDb } from './db/client'
 import { startChannels } from './channels'
 import { createLogger } from './utils/logger'
@@ -35,11 +36,12 @@ new Elysia()
   .use(alertasRoutes)
   .use(contratistaRoutes)
   .use(chatRoutes)
+  .use(dashboardRoutes)
   .listen({
     port: PORT,
-    // Mayor que el timeout de Socrata (30s): los agregados lentos de datos.gov.co
-    // deben completar o fallar con 500 limpio — nunca cortar el socket sin respuesta
-    idleTimeout: 60,
+    // Bun admite como máximo 255s; 0 desactiva el corte para permitir que las
+    // consultas de Socrata alcancen su propio timeout de 300s.
+    idleTimeout: 0,
   }, () => {
     log.info(`Observatorio API escuchando en el puerto ${PORT}`)
   })

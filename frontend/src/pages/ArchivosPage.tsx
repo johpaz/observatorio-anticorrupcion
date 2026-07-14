@@ -4,7 +4,7 @@ import KPICard from '../components/KPICard'
 import BarChartComponent from '../components/charts/BarChartComponent'
 import LineChartComponent from '../components/charts/LineChartComponent'
 import PieChartComponent from '../components/charts/PieChartComponent'
-import { archivosApi } from '../api/client'
+import { dashboardApi } from '../api/client'
 import { formatBytes, formatNumber, formatDate } from '../utils/formatters'
 import { useArchivosStore, ARCHIVOS_INITIAL, cacheKey } from '../store/useArchivosStore'
 import { useSeo } from '../utils/useSeo'
@@ -18,14 +18,11 @@ export default function ArchivosPage() {
     getFromCache, saveToCache,
   } = useArchivosStore()
 
-  // Metadata: solo una vez en toda la sesion
-  useEffect(() => {
-    if (metadataLoaded) return
-    archivosApi.metadata().then(setMetadata).catch(console.error)
-  }, [metadataLoaded, setMetadata])
-
   const loadData = useCallback(async () => {
     const key = cacheKey(filters, page)
+
+    const bootstrap = await dashboardApi.bootstrap()
+    if (!metadataLoaded) setMetadata(bootstrap.data.archivos.metadata)
 
     const cached = getFromCache(key)
     if (cached) {
@@ -36,14 +33,10 @@ export default function ArchivosPage() {
     setLoading(true)
     try {
       const f = filters as Record<string, string>
-      const [kpis, porExtension, porMes, porEntidad, list] = await Promise.all([
-        archivosApi.kpis(f),
-        archivosApi.porExtension(f),
-        archivosApi.porMes({ year: filters.year }),
-        archivosApi.porEntidad(f),
-        archivosApi.list({ ...f, page: String(page), limit: '20' }),
-      ])
-      const newData = { kpis, porExtension, porMes, porEntidad, list }
+      const isDefault = page === 1 && Object.values(f).every(value => value === '')
+      const newData = isDefault
+        ? bootstrap.data.archivos.data
+        : (await dashboardApi.archivos({ ...f, page: String(page), limit: '20' })).data
       setData(newData)
       saveToCache(key, newData)
     } catch (err) {
@@ -51,7 +44,7 @@ export default function ArchivosPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, page, getFromCache, saveToCache, setData, setLoading])
+  }, [filters, page, metadataLoaded, getFromCache, saveToCache, setData, setLoading, setMetadata])
 
   useEffect(() => { loadData() }, [loadData])
 

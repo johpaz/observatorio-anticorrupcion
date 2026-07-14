@@ -12,6 +12,7 @@ import ContratistasPage from '../src/pages/ContratistasPage'
 import LandingPage from '../src/pages/LandingPage'
 import { useAlertasStore, ALERTAS_INITIAL } from '../src/store/useAlertasStore'
 import { useContratistasStore } from '../src/store/useContratistasStore'
+import { clearDashboardRequestCache } from '../src/api/client'
 import type { AlertasResponse, ContratistaResponse } from '../src/api/client'
 
 // ── Mock de fetch por ruta ───────────────────────────────────────────────
@@ -34,10 +35,31 @@ globalThis.fetch = (async (input: any) => {
 const SECTORES_MOCK = ['Transporte', 'Salud y Protección Social', 'deportes']
 
 beforeEach(() => {
+  clearDashboardRequestCache()
   routes = {}
   failAll = false
   hangAll = false
   routes['/api/alertas/sectores'] = () => ({ sectores: SECTORES_MOCK })
+  routes['/api/dashboard/bootstrap'] = () => {
+    const contratos = routes['/api/contratos/kpis']?.() ?? { total: '0', valor_total: '0' }
+    const stats = routes['/api/alertas/stats']?.() ?? { total: 0, rojos: 0, amarillos: 0, verdes: 0 }
+    const alertas = routes['/api/alertas']?.() ?? alertasFixture
+    return {
+      data: {
+        home: { contratos, alertas: stats },
+        contratos: {
+          metadata: { years: [], departamentos: [], sectores: [], tipos: [], estados: [] },
+          data: { kpis: contratos, porSector: [], porTipo: [], porMes: [], porDepto: [], porEstado: [], list: [] },
+        },
+        archivos: {
+          metadata: { years: [], entidades: [] },
+          data: { kpis: {}, porExtension: [], porMes: [], porEntidad: [], list: [] },
+        },
+        alertas: { sectores: SECTORES_MOCK, stats, data: alertas },
+      },
+      cache_status: 'fresh', updated_at: new Date().toISOString(), refreshing: false,
+    }
+  }
   useAlertasStore.setState({ cache: new Map(), data: null, loading: false, filters: ALERTAS_INITIAL })
   useContratistasStore.setState({ cache: new Map(), loading: false })
 })
