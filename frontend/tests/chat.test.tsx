@@ -20,9 +20,17 @@ function createSSEResponse(events: { event: string; data: any }[]): Response {
   })
 }
 
+async function waitForHistory(): Promise<void> {
+  await waitFor(() => expect(screen.queryByText('Cargando conversación…')).toBeNull())
+}
+
 const baseFetch = (async (input: any) => {
   const url = String(input)
   if (failAll) return new Response('down', { status: 503 })
+
+  if (url.includes('/api/chat/history')) {
+    return Response.json({ messages: [], next_before_id: null, has_more: false })
+  }
 
   if (url.includes('/api/chat')) {
     return createSSEResponse([
@@ -40,6 +48,7 @@ globalThis.fetch = baseFetch
 beforeEach(() => {
   failAll = false
   globalThis.fetch = baseFetch
+  window.confirm = () => true
 })
 
 afterEach(cleanup)
@@ -47,6 +56,7 @@ afterEach(cleanup)
 describe('ChatPage: markdown, reasoning y datos', () => {
   test('renderiza markdown en la respuesta del asistente', async () => {
     render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitForHistory()
 
     const input = screen.getByPlaceholderText(/Pregunta sobre contratistas/)
     fireEvent.change(input, { target: { value: 'hola' } })
@@ -60,6 +70,7 @@ describe('ChatPage: markdown, reasoning y datos', () => {
 
   test('muestra reasoning colapsado y se expande al hacer clic', async () => {
     render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitForHistory()
 
     const input = screen.getByPlaceholderText(/Pregunta sobre contratistas/)
     fireEvent.change(input, { target: { value: 'NIT 123' } })
@@ -75,6 +86,9 @@ describe('ChatPage: markdown, reasoning y datos', () => {
   test('muestra tool calls cuando vienen en la respuesta', async () => {
     globalThis.fetch = (async (input: any) => {
       const url = String(input)
+      if (url.includes('/api/chat/history')) {
+        return Response.json({ messages: [], next_before_id: null, has_more: false })
+      }
       if (url.includes('/api/chat')) {
         return createSSEResponse([
           { event: 'thread', data: { thread_id: 'thread-123' } },
@@ -88,6 +102,7 @@ describe('ChatPage: markdown, reasoning y datos', () => {
     }) as typeof fetch
 
     render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitForHistory()
 
     const input = screen.getByPlaceholderText(/Pregunta sobre contratistas/)
     fireEvent.change(input, { target: { value: 'contratistas en Transporte' } })
@@ -96,10 +111,13 @@ describe('ChatPage: markdown, reasoning y datos', () => {
     await waitFor(() => expect(screen.getByText(/buscar_contratista/)).toBeTruthy())
   })
 
-  test('envía thread_id en mensajes posteriores', async () => {
+  test('la identidad queda en cookie y no envía thread_id', async () => {
     let secondBody: any = null
     globalThis.fetch = (async (input: any, init?: any) => {
       const url = String(input)
+      if (url.includes('/api/chat/history')) {
+        return Response.json({ messages: [], next_before_id: null, has_more: false })
+      }
       if (url.includes('/api/chat') && init?.body) {
         const body = JSON.parse(init.body)
         if (body.message === 'segunda') secondBody = body
@@ -111,6 +129,7 @@ describe('ChatPage: markdown, reasoning y datos', () => {
     }) as typeof fetch
 
     render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitForHistory()
 
     const input = screen.getByPlaceholderText(/Pregunta sobre contratistas/)
     fireEvent.change(input, { target: { value: 'primera' } })
@@ -119,11 +138,76 @@ describe('ChatPage: markdown, reasoning y datos', () => {
 
     fireEvent.change(input, { target: { value: 'segunda' } })
     fireEvent.click(screen.getByText('Enviar'))
-    await waitFor(() => expect(secondBody?.thread_id).toBe('thread-123'))
+    await waitFor(() => expect(secondBody?.message).toBe('segunda'))
+    expect(secondBody.thread_id).toBeUndefined()
+    expect(secondBody.channel).toBeUndefined()
+  })
+
+  test('restaura conversación completa al cargar la página', async () => {
+    globalThis.fetch = (async (input: any) => {
+      const url = String(input)
+      if (url.includes('/api/chat/history')) {
+        return Response.json({
+          messages: [
+            { id: 1, role: 'user', content: 'Consulta anterior', created_at: 1 },
+            {
+              id: 2,
+              role: 'assistant',
+              content: 'Respuesta anterior',
+              reasoning: 'Razonamiento guardado',
+              iterations: 2,
+              review: { approved: true, feedback: 'Aprobado', missing: [] },
+              tool_calls: [{ id: 't1', name: 'web_search', args: { query: 'NIT' }, result: { ok: true } }],
+              created_at: 2,
+            },
+          ],
+          next_before_id: null,
+          has_more: false,
+        })
+      }
+      return new Response('not mocked', { status: 404 })
+    }) as typeof fetch
+
+    render(<MemoryRouter><ChatPage /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByText('Consulta anterior')).toBeTruthy())
+    expect(screen.getByText('Respuesta anterior')).toBeTruthy()
+    expect(screen.getByText('Iteraciones: 2')).toBeTruthy()
+    expect(screen.getByText('✅ Revisión aprobada')).toBeTruthy()
+    expect(screen.getByText(/web_search/)).toBeTruthy()
+    expect(screen.getByText(/Ver razonamiento/)).toBeTruthy()
+  })
+
+  test('Nueva conversación confirma, elimina en API y limpia la vista', async () => {
+    let deleted = false
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const url = String(input)
+      if (url.includes('/api/chat/history') && init?.method === 'DELETE') {
+        deleted = true
+        return Response.json({ success: true, deleted: 2 })
+      }
+      if (url.includes('/api/chat/history')) {
+        return Response.json({
+          messages: [{ id: 1, role: 'user', content: 'Mensaje para borrar', created_at: 1 }],
+          next_before_id: null,
+          has_more: false,
+        })
+      }
+      return new Response('not mocked', { status: 404 })
+    }) as typeof fetch
+
+    render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText('Mensaje para borrar')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('Nueva conversación'))
+    await waitFor(() => expect(deleted).toBe(true))
+    await waitFor(() => expect(screen.queryByText('Mensaje para borrar')).toBeNull())
+    expect(screen.getByText('Preguntas sugeridas')).toBeTruthy()
   })
 
   test('responde desde /api/chat', async () => {
     render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitForHistory()
 
     const input = screen.getByPlaceholderText(/Pregunta sobre contratistas/)
     fireEvent.change(input, { target: { value: 'hola' } })
@@ -135,6 +219,7 @@ describe('ChatPage: markdown, reasoning y datos', () => {
   test('muestra error si /api/chat falla', async () => {
     failAll = true
     render(<MemoryRouter><ChatPage /></MemoryRouter>)
+    await waitForHistory()
 
     const input = screen.getByPlaceholderText(/Pregunta sobre contratistas/)
     fireEvent.change(input, { target: { value: 'hola' } })

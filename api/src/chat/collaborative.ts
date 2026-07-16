@@ -5,21 +5,22 @@ import { loadChatHistory, saveChatMessage } from '../db/client'
 const GEMINI_API_KEY = Bun.env.GEMINI_API_KEY
 const GEMINI_MODEL = Bun.env.GEMINI_MODEL ?? 'gemini-3-flash-preview'
 
-const WORKER_PROMPT = `Eres un analista experto en contratación pública colombiana (SECOP II) y riesgo anticorrupción.
+export const WORKER_PROMPT = `Eres un analista experto en contratación pública colombiana (SECOP II) y riesgo anticorrupción.
 Tu trabajo es ejecutar la tarea que te asigne el coordinador.
 Usa las herramientas disponibles siempre que necesites datos reales.
-En cada análisis de un contratista, después de obtener su NIT usa buscar_financiacion_politica. Limita la investigación web a posibles aportes o financiación de campañas y partidos políticos en Colombia, siempre buscando por NIT y usando el nombre solo para validar identidad. Verifica las fuentes con web_fetch o browser_navigate/browser_extract e incluye las URLs consultadas.
-No busques en internet Procuraduría, Contraloría/CGR, SIRI, multas ni sanciones; verifica esos antecedentes exclusivamente con verificar_sanciones y la API interna.
-Para cada aporte confirmado incluye aportante, candidato/campaña/partido, monto, elección, año y URL cuando estén disponibles. Separa registros oficiales de noticias o señalamientos, marca homónimos y coincidencias inciertas, y si no hay evidencia escribe que no se encontraron registros en las fuentes consultadas, sin concluir que nunca existieron.
+Usa web_search cuando el usuario solicite investigar en internet o cuando información externa o actual sea útil. No hagas búsquedas web obligatorias si la tarea no las necesita.
+Para SECOP, Procuraduría, Contraloría/CGR, SIRI, multas y sanciones, prioriza las herramientas internas oficiales; usa web_search como complemento o verificación adicional cuando aporte valor.
+Cuando uses web_search, incluye las URLs encontradas, separa hechos confirmados de coincidencias no verificadas y no trates un resultado del buscador como prueba suficiente por sí solo.
 Responde en español, con fuentes citadas.
 Si la tarea requiere múltiples pasos, muéstralos claramente.
 Cuando el contratista tenga multas SECOP, detalla para cada una: el valor, la entidad que impuso la multa, la resolución, el contrato asociado y la fecha.
 Importante: los scores de riesgo son indicativos basados en patrones estadísticos. No constituyen prueba de corrupción.
 Cita siempre la fuente: SECOP II (datos.gov.co), Procuraduría (SIRI), CGR, SECOP Multas o la URL web concreta según corresponda.`
 
-const REVIEWER_PROMPT = `Eres un revisor crítico y exigente de un equipo de análisis anticorrupción.
+export const REVIEWER_PROMPT = `Eres un revisor crítico y exigente de un equipo de análisis anticorrupción.
 Evalúa si el siguiente trabajo cumple EXACTAMENTE al 100% con la tarea solicitada.
-Cuando la tarea analice un contratista, exige que se haya investigado financiación política por NIT con buscar_financiacion_politica, fuentes web verificadas, control de identidad y datos del aporte cuando existan. Rechaza búsquedas web de Procuraduría, Contraloría/CGR, SIRI, multas o sanciones porque esas fuentes deben consultarse mediante la API interna. No apruebes afirmaciones de ausencia absoluta basadas solo en que una búsqueda no produjo resultados.
+Verifica que las afirmaciones estén respaldadas por las herramientas adecuadas. Para datos cubiertos por SECOP y los registros internos de sanciones, exige esas fuentes oficiales como base; acepta web_search como complemento cuando sea útil o cuando el usuario lo haya solicitado.
+No exijas búsquedas web cuando la tarea no las necesite. Si se usó web_search, comprueba que incluya URLs y que distinga hechos confirmados de coincidencias no verificadas.
 Responde ÚNICAMENTE con un JSON válido y nada más:
 {
   "approved": boolean,
@@ -28,12 +29,12 @@ Responde ÚNICAMENTE con un JSON válido y nada más:
 }
 No agregues texto fuera del JSON.`
 
-const COORDINATOR_PROMPT = `Eres Bee, el coordinador del Observatorio Anticorrupción de Colombia.
+export const COORDINATOR_PROMPT = `Eres Bee, el coordinador del Observatorio Anticorrupción de Colombia.
 Recibes un trabajo ya revisado y aprobado por el revisor.
 Entrega la respuesta final al usuario de forma clara, profesional y con las fuentes citadas.
 Si el contratista tiene multas SECOP, asegúrate de incluir el valor, la entidad que impuso cada multa, la resolución, el contrato asociado y la fecha.
 No inventes datos. Si algo no pudo verificarse, dilo explícitamente.
-Incluye el resultado de la investigación por NIT sobre aportes a campañas o partidos políticos cuando la tarea trate de un contratista. Conserva URLs, montos, beneficiarios, elección y año disponibles, y expresa con precisión cualquier incertidumbre de identidad o falta de resultados.
+Prioriza las fuentes internas oficiales para SECOP y sanciones. Si el trabajo usó web_search, conserva las URLs relevantes y expresa con precisión cualquier incertidumbre o falta de verificación.
 Importante: los scores de riesgo son indicativos basados en patrones estadísticos. No constituyen prueba de corrupción.`
 
 export interface CollaborativeCallbacks {
@@ -172,7 +173,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
   const history = loadChatHistory(threadId, 30)
 
   // Save user message
-  saveChatMessage(threadId, 'user', options.message)
+  saveChatMessage(threadId, 'user', options.message, { visible: true })
 
   const allToolCalls: { id: string; name: string; args: Record<string, unknown>; result: any }[] = []
 
@@ -185,8 +186,10 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
   let lastWorkerResult = ''
   let lastWorkerReasoning = ''
   let review: ReviewResult = { approved: false, feedback: '', missing: [] }
+  let completedIterations = 0
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    completedIterations = iteration
     await callbacks.onIteration?.(iteration, maxIterations)
 
     await callbacks.onWorkerStart?.()
@@ -251,7 +254,13 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
 
   // Persist final messages
   saveChatMessage(threadId, 'assistant', coordinatorResponse.content, {
-    tool_calls: allToolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.args) } })),
+    visible: true,
+    metadata: {
+      reasoning: coordinatorResponse.reasoning_content,
+      tool_calls: allToolCalls,
+      iterations: completedIterations,
+      review,
+    },
   })
 
   return {
@@ -259,7 +268,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
     content: coordinatorResponse.content,
     reasoning: coordinatorResponse.reasoning_content,
     tool_calls: allToolCalls,
-    iterations: maxIterations,
+    iterations: completedIterations,
     review,
   }
 }

@@ -101,8 +101,6 @@ export class TelegramChannel extends BaseChannel {
     }
 
     const text = message.text;
-    const isCommand = text?.startsWith("/") ?? false;
-
     if (text === "/myid" || text?.startsWith("/myid@")) {
       await ctx.reply(
         `🆔 Tu Telegram ID es: <code>${userId}</code>\n\n` +
@@ -131,11 +129,6 @@ export class TelegramChannel extends BaseChannel {
 
     if (text === "/stop" || text?.startsWith("/stop@")) {
       await ctx.reply("⏹ Detención actual cancelada.", { parse_mode: "HTML" });
-      return;
-    }
-
-    if (text === "/new" || text?.startsWith("/new@")) {
-      await ctx.reply("🔄 Sesión reiniciada.", { parse_mode: "HTML" });
       return;
     }
 

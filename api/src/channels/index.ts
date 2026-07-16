@@ -4,8 +4,14 @@ import { handleChatMessage } from '../chat/handler'
 import type { Config } from '@johpaz/hive-agents-core/config/loader'
 import { join } from 'path'
 import { createLogger } from '../utils/logger'
+import { clearChatHistory, resolveChatThread } from '../db/client'
+import { withThreadLock } from '../chat/thread-lock'
 
 const log = createLogger('channels')
+
+export function isTelegramResetCommand(content: string): boolean {
+  return /^\/new(?:@[A-Za-z0-9_]+)?$/i.test(content.trim())
+}
 
 export async function startChannels(): Promise<void> {
   // Ensure Hive has a home directory for WhatsApp auth and its own SQLite schema.
@@ -36,6 +42,7 @@ export async function startChannels(): Promise<void> {
           botToken: telegramBotToken,
           dmPolicy: 'open',
           allowFrom: [],
+          groups: true,
         },
       },
     }
@@ -60,9 +67,22 @@ export async function startChannels(): Promise<void> {
     log.info(`${message.channel}:${message.accountId} - ${message.sessionId}`)
 
     try {
+      const threadId = message.channel === 'telegram'
+        ? resolveChatThread('telegram', message.sessionId)
+        : message.sessionId
+
+      if (message.channel === 'telegram' && isTelegramResetCommand(message.content)) {
+        await withThreadLock(threadId, () => clearChatHistory(threadId))
+        await channelManager.send(message.channel, message.sessionId, {
+          content: '🔄 Conversación reiniciada. Tu historial anterior fue eliminado.',
+          type: 'message',
+        })
+        return
+      }
+
       const result = await handleChatMessage({
         message: message.content,
-        thread_id: message.sessionId,
+        thread_id: threadId,
         channel: message.channel,
         mode: 'task',
       })

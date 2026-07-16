@@ -30,9 +30,6 @@ services:
       - HIVE_MASTER_KEY=${HIVE_MASTER_KEY}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
-      - WEB_TOOLS_ENABLED=${WEB_TOOLS_ENABLED:-1}
-      - BROWSER_ENABLED=${BROWSER_ENABLED:-1}
-      - BROWSER_HEADLESS=${BROWSER_HEADLESS:-1}
       # Directorio (no archivo): evita que Docker cree un directorio-fantasma
       # cuando el .db no existe, y los sidecars WAL quedan dentro del volumen
       - ANTICORRUP_DB_PATH=/app/data/anticorrup.db

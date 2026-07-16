@@ -62,65 +62,12 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
       },
     },
   },
-  {
-    type: 'function',
-    function: {
-      name: 'buscar_financiacion_politica',
-      description: 'Busca exclusivamente posibles aportes o financiación de campañas y partidos políticos en Colombia usando el NIT del contratista. Devuelve fuentes web que deben verificarse antes de atribuir un aporte.',
-      parameters: {
-        type: 'object',
-        properties: {
-          nit: { type: 'string', description: 'NIT del contratista, sin puntos ni espacios' },
-          nombre: { type: 'string', description: 'Nombre del contratista para validar identidad y descartar homónimos' },
-        },
-        required: ['nit'],
-      },
-    },
-  },
-  // La búsqueda genérica se conserva internamente para la tool política,
-  // pero no se expone al LLM para evitar búsquedas web fuera de ese alcance.
-  ...WEB_FUNCTION_DECLARATIONS.filter(tool => tool.function.name !== 'web_search'),
+  ...WEB_FUNCTION_DECLARATIONS,
 ]
 
 export async function executeTool(name: string, args: Record<string, any>): Promise<any> {
   try {
     if (isWebTool(name)) return await executeWebTool(name, args)
-
-    if (name === 'buscar_financiacion_politica') {
-      const nit = String(args.nit ?? '').replace(/\D/g, '')
-      if (nit.length < 6) return { error: 'El NIT es obligatorio para investigar financiación política' }
-
-      const identidad = args.nombre ? ` "${String(args.nombre)}"` : ''
-      const queries = [
-        `"${nit}"${identidad} "Cuentas Claras"`,
-        `"${nit}"${identidad} campaña política Colombia aporte`,
-        `"${nit}"${identidad} partido político Colombia financiación donación`,
-      ]
-      const searches = await Promise.all(queries.map(async query => ({
-        query,
-        result: await executeWebTool('web_search', { query, numResults: 5 }) as any,
-      })))
-
-      const seen = new Set<string>()
-      const fuentes = searches.flatMap(({ query, result }) =>
-        result.ok ? (result.results ?? []).map((item: any) => ({ ...item, consulta: query })) : []
-      ).filter((item: any) => item.url && !seen.has(item.url) && seen.add(item.url))
-
-      return {
-        nit,
-        nombre: args.nombre,
-        fuentes,
-        consultas: searches.map(({ query, result }) => ({
-          query,
-          ok: Boolean(result.ok),
-          engine: result.engine,
-          error: result.error,
-        })),
-        advertencia: fuentes.length > 0
-          ? 'Los resultados son candidatos: verifica NIT, identidad y contenido con browser antes de atribuir un aporte.'
-          : 'No se encontraron registros en las fuentes consultadas; esto no demuestra que nunca hayan existido aportes.',
-      }
-    }
 
     if (name === 'buscar_contratista') {
       const q = `%${args.query}%`

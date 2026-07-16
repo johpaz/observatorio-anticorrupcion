@@ -1,5 +1,45 @@
 import { Elysia, t } from 'elysia'
 import { handleChatMessage } from '../chat/handler'
+import {
+  clearChatHistory,
+  loadVisibleChatHistory,
+  resolveChatThread,
+} from '../db/client'
+import { withThreadLock } from '../chat/thread-lock'
+
+const BROWSER_COOKIE = 'observatorio_browser_id'
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+interface BrowserCookie {
+  value: unknown
+  set(options: {
+    value: string
+    httpOnly: boolean
+    sameSite: 'lax'
+    path: string
+    maxAge: number
+    secure: boolean
+  }): unknown
+}
+
+function resolveWebThread(cookie: Record<string, BrowserCookie>): string {
+  const browserCookie = cookie[BROWSER_COOKIE]
+  const currentValue = typeof browserCookie?.value === 'string' ? browserCookie.value : ''
+  const browserId = UUID_PATTERN.test(currentValue) ? currentValue : crypto.randomUUID()
+
+  if (browserId !== currentValue) {
+    browserCookie?.set({
+      value: browserId,
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      secure: Bun.env.NODE_ENV === 'production',
+    })
+  }
+
+  return resolveChatThread('webchat', browserId)
+}
 
 function sseEvent(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
@@ -14,7 +54,27 @@ function isStreamRequested(body: { stream?: boolean }, headers: Headers): boolea
 export const chatRoutes = new Elysia({ prefix: '/api/chat' })
   .onError(({ error, set }) => { set.status = 500; return { success: false, error: String(error) } })
 
-  .post('/', async ({ body, request, set }) => {
+  .get('/history', ({ cookie, query }) => {
+    const threadId = resolveWebThread(cookie as unknown as Record<string, BrowserCookie>)
+    return loadVisibleChatHistory(threadId, query.limit ?? 50, query.before_id)
+  }, {
+    query: t.Object({
+      limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
+      before_id: t.Optional(t.Numeric({ minimum: 1 })),
+    }),
+  })
+
+  .delete('/history', async ({ cookie }) => {
+    const threadId = resolveWebThread(cookie as unknown as Record<string, BrowserCookie>)
+    const deleted = await withThreadLock(threadId, () => clearChatHistory(threadId))
+    return { success: true, deleted }
+  })
+
+  .post('/', async ({ body, request, set, cookie }) => {
+    // Browser identity is server-owned. thread_id and channel remain accepted in
+    // the body only for backward compatibility and are deliberately ignored.
+    const threadId = resolveWebThread(cookie as unknown as Record<string, BrowserCookie>)
+
     if (isStreamRequested(body, request.headers)) {
       set.headers['Content-Type'] = 'text/event-stream'
       set.headers['Cache-Control'] = 'no-cache'
@@ -40,8 +100,8 @@ export const chatRoutes = new Elysia({ prefix: '/api/chat' })
 
           handleChatMessage({
             message: body.message,
-            thread_id: body.thread_id,
-            channel: body.channel,
+            thread_id: threadId,
+            channel: 'webchat',
             mode: body.mode ?? 'chat',
             callbacks: {
               onThread: (threadId) => enqueue('thread', { thread_id: threadId }),
@@ -89,8 +149,8 @@ export const chatRoutes = new Elysia({ prefix: '/api/chat' })
     // Non-streaming JSON response
     const result = await handleChatMessage({
       message: body.message,
-      thread_id: body.thread_id,
-      channel: body.channel,
+      thread_id: threadId,
+      channel: 'webchat',
       mode: body.mode ?? 'chat',
     })
 
