@@ -66,7 +66,6 @@ El modelo de selección está implementado con un algoritmo de Isolation Forest,
 - [Informe técnico](documentation/informe_tecnico.pdf)
 - [Manual de usuario](documentation/manual_usuario.pdf)
 - [Diagrama de arquitectura](documentation/arquitectura_sistema.png)
-- [Guía de producto y operaciones — Esperanza](documentation/guia_producto_operaciones_esperanza.pdf)
 - [Infraestructura monorepo, Bun, Elysia y ML](documentation/infraestructura_monorepo_bun_elysia_ml.pdf)
 
 ## Arquitectura del sistema
