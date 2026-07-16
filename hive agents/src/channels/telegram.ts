@@ -470,7 +470,7 @@ export class TelegramChannel extends BaseChannel {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const html = this.markdownToHTML(text);
+        const html = markdownToTelegramHTML(text);
         const options: any = { parse_mode: "HTML" };
         if (replyToId) {
           options.reply_parameters = { message_id: replyToId };
@@ -538,7 +538,9 @@ export class TelegramChannel extends BaseChannel {
     return chunks;
   }
 
-  private markdownToHTML(text: string): string {
+}
+
+export function markdownToTelegramHTML(text: string): string {
     // ── Step 1: extract code blocks before any escaping ────────────────────
     // Prevents code content from being HTML-escaped or markdown-converted.
     const codeBlocks: string[] = [];
@@ -569,6 +571,9 @@ export class TelegramChannel extends BaseChannel {
     // Horizontal rules → blank line
     out = out.replace(/^---+$/gm, "");
 
+    // Blockquotes
+    out = out.replace(/^&gt;\s?(.+)$/gm, "<blockquote>$1</blockquote>");
+
     // ── Step 4: inline conversions ─────────────────────────────────────────
     // Bold **text** or __text__
     out = out.replace(/\*\*(.+?)\*\*/gs, "<b>$1</b>");
@@ -582,6 +587,9 @@ export class TelegramChannel extends BaseChannel {
 
     // Strikethrough ~~text~~
     out = out.replace(/~~(.+?)~~/gs, "<s>$1</s>");
+
+    // Markdown links. HTML entities were already escaped above.
+    out = out.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
 
     // ── Step 5: restore code placeholders (now safely escaped) ─────────────
     // Restore inline code
@@ -597,7 +605,6 @@ export class TelegramChannel extends BaseChannel {
     });
 
     return out;
-  }
 }
 
 export function createTelegramChannel(accountId: string, config: TelegramConfig): TelegramChannel {

@@ -1,5 +1,5 @@
 export interface OutboundMessage {
-  type: "message" | "stream" | "status" | "error" | "pong" | "command_result" | "log" | "typing" | "audio";
+  type: "message" | "stream" | "status" | "error" | "pong" | "command_result" | "log" | "typing" | "audio" | "progress";
   sessionId: string;
   id?: string; // Message ID for streaming
   content?: string;

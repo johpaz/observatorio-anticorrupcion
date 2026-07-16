@@ -44,7 +44,9 @@ export interface CollaborativeCallbacks {
   onWorkerDone?: (result: { content: string; reasoning?: string }) => void | Promise<void>
   onToolCall?: (toolCall: { id: string; name: string; args: Record<string, unknown> }) => void | Promise<void>
   onToolResult?: (toolResult: { id: string; name: string; result: any }) => void | Promise<void>
+  onReviewStart?: () => void | Promise<void>
   onReview?: (review: ReviewResult) => void | Promise<void>
+  onCoordinatorStart?: () => void | Promise<void>
   onCoordinatorDone?: (result: { content: string; reasoning?: string }) => void | Promise<void>
 }
 
@@ -206,6 +208,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
     await callbacks.onWorkerDone?.({ content: lastWorkerResult, reasoning: lastWorkerReasoning })
 
     // Reviewer
+    await callbacks.onReviewStart?.()
     const reviewResponse = await callLLM({
       provider: 'gemini',
       model: GEMINI_MODEL,
@@ -234,6 +237,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
   }
 
   // Coordinator final response
+  await callbacks.onCoordinatorStart?.()
   const coordinatorResponse = await callLLM({
     provider: 'gemini',
     model: GEMINI_MODEL,

@@ -52,6 +52,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./gateway": "./src/gateway/index.ts",
+    "./gateway/helpers": "./src/gateway/helpers/index.ts",
     "./agent": "./src/agent/index.ts",
     "./agent/service": "./src/agent/service.ts",
     "./agent/agent-loop": "./src/agent/agent-loop.ts",
