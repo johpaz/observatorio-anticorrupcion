@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#002D58"/>
+  <rect width="14" height="900" fill="#FEC82F"/>
+  <rect x="870" y="90" width="620" height="660" rx="28" fill="#FFFFFF" opacity="0.06" stroke="#5E81A3" stroke-width="2"/>
+  <rect x="925" y="165" width="480" height="360" rx="24" fill="#FFFFFF"/>
+  <rect x="945" y="185" width="440" height="320" rx="18" fill="#F7F9FC"/>
+  <rect x="1000" y="238" width="330" height="210" rx="20" fill="#002D58"/>
+  <rect x="1012" y="250" width="330" height="210" rx="20" fill="#FEC82F"/>
+  <rect x="1000" y="238" width="330" height="210" rx="20" fill="#002D58"/>
+  <text x="1030" y="292" font-family="Montserrat" font-size="23" font-weight="700" fill="#FFFFFF">Monitor SECOP II</text>
+  <text x="1030" y="365" font-family="Montserrat" font-size="60" font-weight="800" fill="#FFFFFF">5,70 M</text>
+  <text x="1030" y="400" font-family="Montserrat" font-size="17" font-weight="700" fill="#FEC82F" letter-spacing="2">CONTRATOS</text>
+  <circle cx="1050" cy="560" r="9" fill="#FEC82F"/>
+  <text x="1080" y="570" font-family="Montserrat" font-size="25" font-weight="700" fill="#FFFFFF">Datos abiertos</text>
+  <circle cx="1050" cy="620" r="9" fill="#CE1126"/>
+  <text x="1080" y="630" font-family="Montserrat" font-size="25" font-weight="700" fill="#FFFFFF">Alertas explicables</text>
+  <circle cx="1050" cy="680" r="9" fill="#42D3A5"/>
+  <text x="1080" y="690" font-family="Montserrat" font-size="25" font-weight="700" fill="#FFFFFF">Asistente virtual</text>
+  <rect x="72" y="72" width="64" height="64" rx="14" fill="#FFFFFF" opacity="0.1"/>
+  <rect x="88" y="86" width="10" height="38" rx="5" fill="#FEC82F"/>
+  <circle cx="113" cy="99" r="10" fill="none" stroke="#FEC82F" stroke-width="5"/>
+  <line x1="120" y1="107" x2="130" y2="118" stroke="#FEC82F" stroke-width="5" stroke-linecap="round"/>
+  <text x="160" y="110" font-family="Montserrat" font-size="18" font-weight="700" fill="#FEC82F" letter-spacing="3">DATOS AL ECOSISTEMA 2026 · RETO 7</text>
+  <text x="72" y="270" font-family="Montserrat" font-size="77" font-weight="800" fill="#FFFFFF">Observatorio</text>
+  <text x="72" y="362" font-family="Montserrat" font-size="77" font-weight="800" fill="#FFFFFF">Anticorrupción</text>
+  <text x="72" y="454" font-family="Montserrat" font-size="77" font-weight="800" fill="#FFFFFF">de Colombia</text>
+  <text x="72" y="540" font-family="Montserrat" font-size="32" font-weight="700" fill="#FEC82F">De datos dispersos a decisiones focalizadas</text>
+  <text x="72" y="605" font-family="Montserrat" font-size="25" fill="#DCE7F3">Asistente virtual y analítica explicable para facilitar</text>
+  <text x="72" y="640" font-family="Montserrat" font-size="25" fill="#DCE7F3">el acceso ciudadano a datos abiertos de contratación pública.</text>
+  <text x="72" y="765" font-family="Montserrat" font-size="23" font-weight="700" fill="#FFFFFF">John Paez · Desarrollo de software e IA</text>
+  <text x="72" y="805" font-family="Montserrat" font-size="23" font-weight="700" fill="#FFFFFF">Esperanza Niño · Producto y operaciones</text>
+</svg>

@@ -12,6 +12,63 @@ En particular, el sistema incorpora un modelo desarrollado en Python para defini
 
 El modelo de selección está implementado con un algoritmo de Isolation Forest, un método de detección de anomalías no supervisado. Se alimenta con características de los contratos y contratistas, como cantidad de contratos, valores, entidades involucradas, vencimientos, días adicionados y proporción de contratos con baja ejecución. A partir de estas variables, el modelo identifica patrones atípicos y asigna un score de anomalía que ayuda a priorizar entidades o sectores con mayor riesgo o necesidad de revisión.
 
+## Ficha del proyecto — Datos al Ecosistema 2026
+
+**Reto 7 — Innovación y Tecnología:** diseñar asistentes virtuales que faciliten el acceso ciudadano a datos abiertos.
+
+**Problema abordado:** los registros de contratación, sanciones, control fiscal y obras están disponibles, pero se encuentran distribuidos entre fuentes con estructuras y mecanismos de consulta diferentes. Integrarlos e interpretarlos requiere conocimientos técnicos y tiempo de análisis.
+
+**Justificación y valor público:** el Observatorio reduce la barrera de acceso, unifica antecedentes, presenta alertas explicables y permite consultar datos en lenguaje natural. El score prioriza revisiones; no constituye prueba de corrupción.
+
+**Cliente y usuarios:** entidades de control y oficinas de control interno como adoptantes; analistas y auditores como usuarios directos; ciudadanía, veedurías, periodistas e investigadores como beneficiarios.
+
+**Datasets y dominios utilizados:**
+
+- SECOP II — Contratos Electrónicos (`jbjy-vk9h`), datos.gov.co.
+- Responsabilidades fiscales de la Contraloría.
+- Antecedentes disciplinarios SIRI de Procuraduría.
+- Sanciones penales de la Fiscalía.
+- Multas contractuales SECOP.
+- Obras inconclusas o mal ejecutadas.
+
+**Variables seleccionadas:** volumen y valor contractual, entidades relacionadas, fechas, estados, días adicionados, ejecución facturada, coincidencias institucionales y nueve características agregadas para Isolation Forest.
+
+**Tipo de análisis:** descriptivo, scoring determinístico y detección de anomalías no supervisada.
+
+**Resultados clave:** aplicación pública, API Anticorrupción Colombia con Swagger, nueve banderas explicables, semáforo, perfiles por NIT, análisis por sector, exportación CSV, caché persistente y asistente con herramientas.
+
+**Interpretación:** una alerta indica prioridad de revisión. Un perfil atípico o una coincidencia de datos no determina responsabilidad jurídica.
+
+**Impacto potencial:** apropiación ciudadana, reducción del tiempo de búsqueda, focalización de auditorías y reutilización de la integración mediante API.
+
+## Solución en producción y entregables
+
+- Aplicación web: https://observatorio-col.srv991465.hstgr.cloud
+- Swagger local de la API Anticorrupción: `http://localhost:3000/swagger`
+- Docker Hub:
+  - `docker pull johpaz/secop-frontend:latest`
+  - `docker pull johpaz/secop-api:latest`
+  - `docker pull johpaz/secop-procuraduria:latest`
+  - `docker pull johpaz/secop-hive:latest`
+- [Presentación editable](RECURSOS/Presentacion.pptx)
+- [Presentación en PDF](RECURSOS/presentacion.pdf)
+- [Portada](RECURSOS/portada.png)
+
+## Documentación del proyecto
+
+- [Planteamiento del problema](docs/planteamiento_problema.md)
+- [Marco metodológico](docs/marco_metodologico.md)
+- [Fuentes de datos](docs/fuentes_datos.md)
+- [Diccionario de datos](docs/diccionario_datos.md)
+- [Arquitectura](docs/architecture.md)
+- [Conclusiones](docs/conclusiones.md)
+- [Guía de validación](docs/validation_guide.md)
+- [Informe técnico](documentation/informe_tecnico.pdf)
+- [Manual de usuario](documentation/manual_usuario.pdf)
+- [Diagrama de arquitectura](documentation/arquitectura_sistema.png)
+- [Guía de producto y operaciones — Esperanza](documentation/guia_producto_operaciones_esperanza.pdf)
+- [Infraestructura monorepo, Bun, Elysia y ML](documentation/infraestructura_monorepo_bun_elysia_ml.pdf)
+
 ## Arquitectura del sistema
 
 El stack está compuesto por cuatro capas principales:
