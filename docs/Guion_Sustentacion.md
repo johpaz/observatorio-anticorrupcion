@@ -34,7 +34,7 @@ Nuestra propuesta no es otra tabla de datos. Antes, una persona debía entrar a 
 
 ### 8. Metodología — John — 1:00
 
-Seguimos un ciclo CRISP-ML. Delimitamos la decisión, adquirimos los datos, normalizamos campos, construimos variables y combinamos reglas con Isolation Forest. Evaluamos aritmética, persistencia, caché y el flujo completo. Finalmente desplegamos en contenedores con actualización y respaldo local.
+Seguimos un ciclo CRISP-ML. Como antecedente colombiano tomamos el estudio *Índice de riesgo de corrupción en el sistema de compra pública colombiano*, de Zuleta, Ospina y Caro, publicado por Fedesarrollo y el BID en 2019. Ese trabajo analiza SECOP mediante indicadores de falta de competencia, falta de transparencia y anomalías. En nuestro prototipo, el puntaje combina nueve reglas operativas visibles con una señal estadística basada en Isolation Forest. Los pesos exactos son decisiones del prototipo, no una reproducción literal del índice del estudio. Evaluamos aritmética, persistencia, caché y el flujo completo, y desplegamos en contenedores.
 
 ### 9. Arquitectura — John — 1:00
 
@@ -42,7 +42,7 @@ La arquitectura tiene cuatro capas. Las fuentes abiertas alimentan la API Antico
 
 ### 10. IA explicable — John — 1:00
 
-Las reglas son transparentes. Isolation Forest identifica perfiles atípicos dentro de cada sector usando nueve variables, cien árboles y un umbral explícito. El agente llama herramientas de consulta. Como no existen etiquetas confiables de corrupción, no inventamos una precisión: validamos coherencia, estabilidad y trazabilidad. Un outlier es una señal, nunca una acusación.
+Las reglas son transparentes. Para detectar comportamientos atípicos nos basamos en el paper *Isolation Forest*, publicado por Fei Tony Liu, Kai Ming Ting y Zhi-Hua Zhou en la conferencia IEEE ICDM de 2008. Su idea central es que una observación anómala, por ser escasa y diferente, suele aislarse con recorridos más cortos en árboles aleatorios. En nuestra implementación comparamos cada NIT con sus pares del mismo sector mediante nueve variables, cien árboles y un umbral explícito. El paper fundamenta el algoritmo de anomalías; los puntos de las nueve banderas y el semáforo son reglas operativas propias, visibles y auditables. Como no existen etiquetas confiables de corrupción, no inventamos una precisión. Un outlier es una señal para revisar, nunca una acusación.
 
 ### 11. Resultados — Esperanza — 0:55
 
@@ -63,6 +63,26 @@ Ahora vamos a probar la solución con una pregunta concreta: cuáles son los con
 ## Cierre sugerido
 
 El Observatorio no reemplaza al auditor ni acusa a un contratista. Reduce la distancia entre millones de datos abiertos y una decisión informada. Publicar datos es el primer paso; lograr que la ciudadanía pueda comprenderlos y utilizarlos es el impacto que proponemos.
+
+## Referencias académicas del puntaje
+
+### Antecedente para riesgo en compra pública colombiana
+
+Zuleta, M. M., Ospina, S. y Caro, C. A. (2019). *Índice de riesgo de corrupción en el sistema de compra pública colombiano a partir de una metodología desarrollada por el Instituto Mexicano para la Competitividad*. Fedesarrollo/Banco Interamericano de Desarrollo. [Consultar estudio](https://hdl.handle.net/11445/3872).
+
+Este estudio aplicó a SECOP 32 indicadores organizados en falta de competencia, falta de transparencia y anomalías en los procesos de compra. Es el antecedente metodológico colombiano, pero el Observatorio no replica literalmente su índice ni sus ponderaciones.
+
+### Fundamento del componente de anomalías
+
+**Cita completa:** Liu, F. T., Ting, K. M. y Zhou, Z.-H. (2008). “Isolation Forest”. *2008 Eighth IEEE International Conference on Data Mining (ICDM)*, pp. 413–422. DOI: [10.1109/ICDM.2008.17](https://doi.org/10.1109/ICDM.2008.17).
+
+**Enlace al paper:** [PDF alojado por Nanjing University](https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf).
+
+**Respuesta corta si el jurado pregunta en qué se basa el puntaje:**
+
+> Tenemos dos referencias. Para el enfoque de riesgo en contratación pública usamos como antecedente el estudio colombiano de Zuleta, Ospina y Caro, publicado por Fedesarrollo y el BID en 2019. Para el componente estadístico usamos Isolation Forest, de Liu, Ting y Zhou, publicado en IEEE ICDM 2008. Nuestro prototipo combina esa señal de anomalía con nueve reglas explicables; los pesos concretos y los cortes del semáforo son decisiones operativas propias que deben calibrarse con expertos.
+
+**Precisión que debe conservarse:** no decir que todo el puntaje fue tomado de un paper. El estudio de Fedesarrollo/BID es un antecedente conceptual y empírico para analizar riesgo en SECOP. Isolation Forest aporta como máximo 30 puntos al score cuando su señal supera el umbral definido. Las demás banderas, sus pesos y los cortes del semáforo son decisiones operativas del prototipo y deberán calibrarse con expertos y validación institucional.
 
 ## Distribución de preguntas
 

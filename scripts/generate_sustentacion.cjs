@@ -1,4 +1,4 @@
-const pptxgen = require('/tmp/observatorio-pptx/node_modules/pptxgenjs')
+const pptxgen = require('../hive agents/node_modules/pptxgenjs')
 const path = require('path')
 
 const pptx = new pptxgen()
@@ -319,7 +319,7 @@ function addNotes(slide, speaker, time, text) {
   slide.addShape(pptx.ShapeType.arc, { x: 11.58, y: 3.05, w: 0.62, h: 1.68, adjustPoint: 0.2, rotate: 90, line: { color: C.blue, width: 2.2, beginArrowType: 'none', endArrowType: 'triangle' }, fill: { color: C.bg, transparency: 100 } })
   slide.addText('Validación continua', { x: 9.35, y: 5.98, w: 2.6, h: 0.22, margin: 0, fontSize: 8, bold: true, color: C.green, align: 'right' })
   slide.addText('Aritmética de scores · contrato API/UI · persistencia · caché · pipeline ML · pruebas E2E con datos reales', { x: 1.0, y: 6.32, w: 11.3, h: 0.25, margin: 0, fontSize: 9.5, bold: true, color: C.navy, align: 'center' })
-  addNotes(slide, 'John', '1:00', 'Seguimos un ciclo CRISP-ML. Primero delimitamos la decisión: priorizar revisiones. Después adquirimos datos por Socrata y registros sectoriales, normalizamos los campos, construimos variables y combinamos reglas con Isolation Forest. Evaluamos aritmética, persistencia, caché y flujo E2E. Finalmente desplegamos en contenedores, con actualización y respaldo local.')
+  addNotes(slide, 'John', '1:00', 'Seguimos un ciclo CRISP-ML. Como antecedente colombiano tomamos el estudio Índice de riesgo de corrupción en el sistema de compra pública colombiano, de Zuleta, Ospina y Caro, publicado por Fedesarrollo y el BID en 2019. Ese trabajo analiza SECOP mediante indicadores de falta de competencia, falta de transparencia y anomalías. Nuestro prototipo combina nueve reglas operativas visibles con una señal estadística basada en Isolation Forest. Los pesos exactos son decisiones propias, no una reproducción literal del índice del estudio. Evaluamos aritmética, persistencia, caché y flujo E2E, y desplegamos en contenedores.')
 }
 
 // 9 — Arquitectura
@@ -359,7 +359,7 @@ function addNotes(slide, speaker, time, text) {
   slide.addText('LÍMITES Y SESGOS', { x: 0.9, y: 6.0, w: 1.72, h: 0.2, margin: 0, fontSize: 7.5, bold: true, color: C.red, charSpacing: 1.1 })
   slide.addText('Calidad y rezago de la fuente · ausencia de etiquetas de corrupción · outlier ≠ irregularidad · diferencias entre sectores · revisión humana obligatoria', { x: 2.5, y: 5.98, w: 9.85, h: 0.24, margin: 0, fontSize: 8.8, bold: true, color: C.ink, align: 'center', fit: 'shrink' })
   slide.addText('Validamos coherencia del score, estabilidad del pipeline y trazabilidad; no publicamos una “precisión” ficticia sin etiquetas confiables.', { x: 1.0, y: 6.64, w: 11.3, h: 0.21, margin: 0, fontSize: 7.5, color: C.muted, align: 'center' })
-  addNotes(slide, 'John', '1:00', 'Usamos tres formas de IA. Las reglas son completamente transparentes. Isolation Forest identifica perfiles atípicos dentro de cada sector con nueve variables, cien árboles y un umbral explícito. El agente llama herramientas que consultan nuestras APIs. Como no tenemos etiquetas confiables de corrupción, no inventamos una precisión. Un outlier es una señal para revisar, nunca una acusación.')
+  addNotes(slide, 'John', '1:00', 'Usamos tres formas de IA. Para detectar comportamientos atípicos nos basamos en el paper Isolation Forest, de Fei Tony Liu, Kai Ming Ting y Zhi-Hua Zhou, publicado en IEEE ICDM 2008. Su idea es que las observaciones escasas y diferentes suelen aislarse con recorridos más cortos en árboles aleatorios. Lo aplicamos por sector con nueve variables, cien árboles y un umbral explícito. El paper fundamenta el algoritmo de anomalías; los puntos de las banderas y el semáforo son reglas operativas propias. Sin etiquetas confiables de corrupción no inventamos una precisión: un outlier es una señal para revisar, nunca una acusación.')
 }
 
 // 11 — Resultados
