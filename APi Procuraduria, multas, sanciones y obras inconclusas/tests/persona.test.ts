@@ -113,3 +113,79 @@ describe('GET /search', () => {
     expect(res.status).not.toBe(200)
   })
 })
+
+describe('GET /search por nombre completo', () => {
+  test('encuentra "nombre apellido" y "apellido nombre"', async () => {
+    for (const q of ['juan perez', 'perez juan']) {
+      const { body } = await get(`/search?q=${encodeURIComponent(q)}`)
+      expect(body.results.disciplinarios.some((d: any) => d.documento === NIT_SANCIONADO)).toBe(true)
+    }
+  })
+})
+
+describe('GET /persona/:documento — coincidencia exacta de documentos', () => {
+  beforeAll(() => {
+    const db = getDb()
+    db.run(`INSERT INTO fiscales (responsable, documento, entidad_afectada) VALUES ('EMPRESA CON DV SAS', '8605123303', 'ENTIDAD X')`)
+    db.run(`INSERT INTO fiscales (responsable, documento, entidad_afectada) VALUES ('OTRA PERSONA', '1090123456789', 'ENTIDAD Y')`)
+    db.run(`INSERT INTO multas_secop (entidad, nombre_responsable, cedula_responsable, valor_multa) VALUES ('E', 'BASURA', '0000000', 1)`)
+    db.run(`INSERT INTO disciplinarios (documento, nombre1, apellido1) VALUES ('  79.861.465 ', 'JUAN', 'GOMEZ')`)
+  })
+
+  test('un documento no coincide con números que solo lo contienen', async () => {
+    const { body } = await get('/persona/90123456')
+    expect(body.fiscales).toHaveLength(0)
+    const { body: b2 } = await get('/persona/1090123')
+    expect(b2.fiscales).toHaveLength(0)
+  })
+
+  test('un NIT coincide con o sin dígito de verificación', async () => {
+    for (const nit of ['860512330', '8605123303']) {
+      const { body } = await get(`/persona/${nit}`)
+      expect(body.fiscales.map((f: any) => f.responsable)).toEqual(['EMPRESA CON DV SAS'])
+    }
+  })
+
+  test('documentos placeholder no coinciden con nada', async () => {
+    for (const doc of ['0000000', '1111111', '123']) {
+      const { body } = await get(`/persona/${doc}`)
+      expect(body.resumen.total_registros).toBe(0)
+    }
+  })
+
+  test('ignora puntos, guiones y espacios guardados en la fuente', async () => {
+    const { body } = await get('/persona/79861465')
+    expect(body.disciplinarios).toHaveLength(1)
+  })
+})
+
+describe('depuración de filas repetidas', () => {
+  test('migrateRefreshColumns elimina duplicados exactos y conserva las filas distintas', async () => {
+    const { migrateRefreshColumns } = await import('../src/db/schema')
+    const db = getDb()
+    for (let i = 0; i < 3; i++) {
+      db.run(`INSERT INTO obras (cod_obra, nombre_entidad, valor_contrato, identificacion) VALUES ('OB-DUP', 'ALCALDIA REPETIDA', 100, '800111222')`)
+    }
+    db.run(`INSERT INTO obras (cod_obra, nombre_entidad, valor_contrato, identificacion) VALUES ('OB-OTRA', 'ALCALDIA REPETIDA', 100, '800111222')`)
+    migrateRefreshColumns()
+    const filas = db.query(`SELECT cod_obra FROM obras WHERE nombre_entidad = 'ALCALDIA REPETIDA' ORDER BY cod_obra`).all() as any[]
+    expect(filas.map(f => f.cod_obra)).toEqual(['OB-DUP', 'OB-OTRA'])
+  })
+})
+
+describe('instalación nueva: siembra con filas repetidas y migración', () => {
+  test('migrateRefreshColumns no falla cuando el índice único ya existe y hay duplicados sin clave', async () => {
+    const { migrateRefreshColumns, createSchema } = await import('../src/db/schema')
+    const db = getDb()
+    createSchema() // deja creado idx_disc_clave, como en el arranque de una base vacía
+    for (let i = 0; i < 3; i++) {
+      db.run(`INSERT INTO disciplinarios (id_sancion, documento, tipo_sancion_aplicada, fecha_sancion, nombre1, apellido1)
+              VALUES ('S-1', '555111222', 'DESTITUCION', '2020-01-01', 'ANA', 'RUIZ')`)
+      db.run(`INSERT INTO multas_secop (ref_contrato, resolucion, cedula_responsable, nombre_responsable)
+              VALUES ('C-1', 'R-1', '555111222', 'ANA RUIZ')`)
+    }
+    expect(() => migrateRefreshColumns()).not.toThrow()
+    expect((db.query(`SELECT COUNT(*) c FROM disciplinarios WHERE documento = '555111222'`).get() as any).c).toBe(1)
+    expect((db.query(`SELECT COUNT(*) c FROM multas_secop WHERE cedula_responsable = '555111222'`).get() as any).c).toBe(1)
+  })
+})

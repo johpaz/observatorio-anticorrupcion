@@ -13,6 +13,7 @@
  *
  * Ejecutar con: bun run test:e2e
  */
+import { puntosBandera } from '../src/services/scoring-rules'
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
 import { join } from 'path'
 import { mkdtempSync, existsSync } from 'fs'
@@ -128,18 +129,9 @@ afterAll(() => {
 })
 
 // ── Puntos por bandera, según la promesa publicada en la landing ─────────
+// Módulo puro (sin base de datos): la misma aritmética que usa el scorer.
 function expectedPoints(flag: string): number {
-  const n = Number(flag.match(/\((-?[\d.]+)\)/)?.[1] ?? NaN)
-  if (flag.startsWith('VENCIDOS_SIN_CERRAR')) return Math.min(n * 25, 75)
-  if (flag.startsWith('EXTENSION_MAYOR_1_ANO')) return 20
-  if (flag.startsWith('MULTIPLES_ADICIONES')) return 15
-  if (flag.startsWith('CONCENTRACION_ENTIDADES')) return 10
-  if (flag.startsWith('BAJA_EJECUCION')) return 15
-  if (flag.startsWith('SANCIONADO_DISCIPLINARIO')) return 30
-  if (flag.startsWith('RESPONSABILIDAD_FISCAL')) return 25
-  if (flag.startsWith('MULTA_SECOP')) return 15
-  if (flag.startsWith('ANOMALIA_ESTADISTICA')) return Math.min(Math.round((-n - 0.05) / 0.45 * 30), 30)
-  throw new Error(`Bandera desconocida (no está en la promesa de la landing): ${flag}`)
+  return puntosBandera(flag)
 }
 
 function nivelFromScore(score: number): string {

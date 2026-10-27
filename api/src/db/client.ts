@@ -1,6 +1,7 @@
 import { Database } from 'bun:sqlite'
 import { join } from 'path'
-import type { LLMMessage } from '@johpaz/hive-agents-core/agent/llm-client'
+import type { LLMMessage } from '@johpaz/hive-sdk'
+import { SCORING_VERSION } from '../services/scoring-rules'
 
 export const DB_PATH = Bun.env.ANTICORRUP_DB_PATH ?? join(import.meta.dir, '../../../anticorrup.db')
 export const db = new Database(DB_PATH, { create: true })
@@ -93,6 +94,26 @@ export function initDb(): void {
   } catch { /* tables may not support rebuild if no content rows */ }
 
   initChatHistory()
+  migrateScoringVersion()
+}
+
+/**
+ * Si los scores guardados se calcularon con otras reglas, se marcan como vencidos (no se
+ * borran): la API sigue sirviéndolos mientras se recalculan en segundo plano y el warmup
+ * del arranque los reemplaza. Las anomalías del modelo anterior sí se descartan.
+ */
+export function migrateScoringVersion(): boolean {
+  db.exec(`CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
+  const current = db.query<{ value: string }, []>(`SELECT value FROM app_meta WHERE key = 'scoring_version'`).get()
+  if (current?.value === SCORING_VERSION) return false
+
+  db.transaction(() => {
+    db.exec(`UPDATE scores SET calculado_at = 0`)
+    db.exec(`DELETE FROM anomaly_scores`)
+    db.exec(`UPDATE dashboard_cache SET updated_at = 0`)
+    db.prepare(`INSERT OR REPLACE INTO app_meta (key, value) VALUES ('scoring_version', ?)`).run(SCORING_VERSION)
+  })()
+  return true
 }
 
 

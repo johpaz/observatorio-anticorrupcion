@@ -45,17 +45,25 @@
 
 ## Banderas
 
-| Bandera | Regla | Puntos |
-|---|---|---:|
-| `VENCIDOS_SIN_CERRAR(n)` | En ejecución o prorrogado, fin vencido más de 6 meses | 25 por contrato, máximo 75 |
-| `EXTENSION_MAYOR_1_ANO` | Algún contrato con más de 365 días adicionados | 20 |
-| `MULTIPLES_ADICIONES(n)` | Tres o más contratos con extensión, si no aplica la anterior | 15 |
-| `CONCENTRACION_ENTIDADES(n)` | Cinco o más entidades distintas | 10 |
-| `BAJA_EJECUCION(n)` | Contrato > $5 millones, terminado/cancelado y facturado < 50 % | 15 |
-| `SANCIONADO_DISCIPLINARIO` | Coincidencia en SIRI | 30 |
-| `RESPONSABILIDAD_FISCAL` | Coincidencia fiscal CGR | 25 |
-| `MULTA_SECOP` | Coincidencia en multas contractuales | 15 |
-| `ANOMALIA_ESTADISTICA(x)` | Isolation Forest por debajo de `-0,05` | 0 a 30 |
+Las banderas de contratos puntúan por la **proporción** de contratos afectados, no por su cantidad: tener muchos contratos no suma riesgo por sí solo. Cada bandera se guarda como `CODIGO(casos/total)`, por ejemplo `VENCIDOS_SIN_CERRAR(3/25)`.
+
+Puntos = `round(máximo × min(1, casos / (total + 2) / saturación))`, y la bandera no se activa si `casos / total` queda por debajo del mínimo. El `+2` del suavizado evita que un historial de uno o dos contratos alcance el máximo por azar. Se evalúan hasta los 500 contratos más recientes del proveedor.
+
+| Bandera | Regla | Mínimo para activarse | Puntos |
+|---|---|---|---:|
+| `VENCIDOS_SIN_CERRAR(n/total)` | En ejecución o prorrogado, fin vencido más de 6 meses | 5 % de los contratos | hasta 75 (máximo con ≥ 60 % suavizado) |
+| `EXTENSION_MAYOR_1_ANO(n/total)` | Contratos con más de 365 días adicionados | 5 % de los contratos | hasta 20 (máximo con ≥ 30 %) |
+| `MULTIPLES_ADICIONES(n/total)` | Tres o más contratos con extensión, si no aplica la anterior | 30 % de los contratos y al menos 3 | hasta 15 (máximo con ≥ 60 %) |
+| `CONCENTRACION_ENTIDADES(entidades/total)` | Cinco o más entidades distintas | una entidad distinta por al menos el 40 % de los contratos | 10 |
+| `BAJA_EJECUCION(n/elegibles)` | Contrato > $5 millones, terminado/cancelado y facturado < 50 %. El total son los contratos terminados o cancelados > $5 millones | 10 % de los elegibles | hasta 15 (máximo con ≥ 30 %) |
+| `SANCIONADO_DISCIPLINARIO` | Coincidencia exacta de documento en SIRI | — | 30 |
+| `RESPONSABILIDAD_FISCAL` | Coincidencia exacta de documento fiscal CGR | — | 25 |
+| `MULTA_SECOP` | Coincidencia exacta de documento en multas contractuales | — | 15 |
+| `ANOMALIA_ESTADISTICA(x)` | Isolation Forest por debajo de `-0,05` y por encima del promedio de su sector en las variables de conducta | — | 0 a 30 |
+
+Ejemplos: 1 contrato vencido de 1 → 42 puntos; 4 de 4 → 75; 3 de 23 → 15; 3 de 400 (0,75 %) → no se activa.
+
+Las banderas guardadas antes de este formato (`VENCIDOS_SIN_CERRAR(3)`) se siguen mostrando con las reglas anteriores hasta que se recalculan. Al desplegar una versión nueva de las reglas (`SCORING_VERSION` en `api/src/services/scoring-rules.ts`), los scores guardados se marcan como vencidos al arrancar y se recalculan solos mientras se siguen sirviendo.
 
 ## Nota de interpretación
 

@@ -62,21 +62,25 @@ Los errores de parseo se manejan con conversiones seguras. Los archivos con estr
 
 El score combina nueve banderas:
 
-1. Contratos vencidos sin cerrar: 25 puntos por caso, máximo 75.
-2. Extensión superior a un año: 20.
-3. Múltiples adiciones: 15.
-4. Concentración en cinco o más entidades: 10.
-5. Baja ejecución: 15.
+1. Contratos vencidos sin cerrar: hasta 75 puntos, según el porcentaje de contratos afectados.
+2. Extensión superior a un año: hasta 20, por porcentaje de contratos afectados.
+3. Múltiples adiciones: hasta 15, si afectan al menos el 30 % de los contratos.
+4. Concentración en cinco o más entidades: 10, si cubren al menos el 40 % de los contratos.
+5. Baja ejecución: hasta 15, por porcentaje de contratos terminados afectados.
 6. Antecedente disciplinario: 30.
 7. Responsabilidad fiscal: 25.
 8. Multa SECOP: 15.
 9. Anomalía estadística: hasta 30.
 
+Las banderas de contratos puntúan por proporción y no por cantidad, con un mínimo para activarse y un suavizado para historiales cortos (detalle en el diccionario de datos). Así un contratista con muchos contratos no acumula riesgo solo por su volumen. Los antecedentes se cruzan por documento exacto, con o sin dígito de verificación del NIT.
+
 El semáforo es verde por debajo de 30, amarillo entre 30 y 60 y rojo por encima de 60. Cada resultado expone la lista de causas para que el usuario pueda reconstruir el puntaje.
 
 ## Isolation Forest
 
-El modelo no supervisado compara cada NIT con sus pares del mismo sector. Utiliza nueve características agregadas, normalización estándar, 100 árboles, contaminación 0,15 y semilla 42. Un `decision_function` menor a `-0,05` genera una bandera y un bono lineal limitado a 30 puntos.
+El modelo no supervisado compara cada NIT con sus pares del mismo sector. Juzga conducta y no tamaño: utiliza cinco características (porcentaje de contratos vencidos, de baja ejecución y con adiciones, días máximos adicionados y valor medio por contrato), con tasas suavizadas para historiales cortos, normalización estándar, 200 árboles, contaminación automática y semilla 42. Un `decision_function` menor a `-0,05` genera una bandera y un bono lineal limitado a 30 puntos, pero solo si el contratista está por encima del promedio de su sector en las variables de conducta: ser atípico por tener menos vencidos o adiciones que sus pares no es un riesgo. Se requieren al menos 10 contratistas por sector.
+
+En una prueba controlada (30 contratistas sanos de tamaños muy distintos y 2 anómalos, 20 repeticiones), la versión anterior marcaba como anómalo al 24 % de los contratistas con 5 contratos o menos solo por su tamaño; la actual lo reduce al 6 %. Ambas detectan el 100 % de los anómalos sintéticos. La cantidad total de falsos positivos no cambia (cerca de 1 por cada 30 sanos): es el piso esperable de un detector no supervisado.
 
 No se reporta precisión supervisada porque no existe una etiqueta completa y confiable de corrupción. Se valida la estabilidad del proceso, la escritura de resultados, la coherencia del score y la trazabilidad.
 

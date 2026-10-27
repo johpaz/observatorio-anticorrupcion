@@ -6,6 +6,8 @@ const log = createLogger('socrata')
 const BASES: Record<string, string> = {
   contratos: 'https://www.datos.gov.co/resource/jbjy-vk9h.json',
   archivos: 'https://www.datos.gov.co/resource/dmgg-8hin.json',
+  // Registro de proveedores SECOP II: responde por nombre en ~1s (el dataset de contratos tarda ~45s)
+  proveedores: 'https://www.datos.gov.co/resource/qmzu-gj57.json',
 }
 
 interface CacheEntry {
@@ -16,6 +18,23 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>()
 const inFlight = new Map<string, Promise<unknown[]>>()
 const TTL = Number(Bun.env.CACHE_TTL ?? 300) * 1000
+
+// datos.gov.co degrada las consultas concurrentes (6 en paralelo: 30-60s c/u;
+// en serie: ~4s c/u), así que el bootstrap con ~20 agregados se pasaba del timeout.
+const MAX_CONCURRENT = Math.max(1, Number(Bun.env.SOCRATA_CONCURRENCY ?? 3))
+let active = 0
+const waiting: Array<() => void> = []
+
+async function withSlot<T>(task: () => Promise<T>): Promise<T> {
+  if (active >= MAX_CONCURRENT) await new Promise<void>(resolve => waiting.push(resolve))
+  active++
+  try {
+    return await task()
+  } finally {
+    active--
+    waiting.shift()?.()
+  }
+}
 
 export async function socrataQuery(
   dataset: keyof typeof BASES,
@@ -45,7 +64,7 @@ export async function socrataQuery(
     try {
       // Los agregados grandes de datos.gov.co pueden tardar varios minutos.
       // El servidor no aplica idle timeout para permitir que esta espera complete.
-      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(300_000) })
+      const res = await withSlot(() => fetch(url.toString(), { signal: AbortSignal.timeout(300_000) }))
       if (!res.ok) throw new Error(`Socrata ${res.status}: ${await res.text()}`)
 
       const data = (await res.json()) as unknown[]

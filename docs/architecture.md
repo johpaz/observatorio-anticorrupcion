@@ -17,7 +17,7 @@ CGR / SIRI / FGN / multas / obras ─ API Anticorrupción ───────�
 - `frontend/`: React, Vite, Zustand, Recharts y Tailwind.
 - `api/`: API principal, scoring, caché, chat y orquestación del modelo Python.
 - `APi Procuraduria, multas, sanciones y obras inconclusas/`: API Anticorrupción Colombia.
-- `hive agents/`: runtime de agentes y paquetes internos reutilizables.
+- `@johpaz/hive-sdk`: runtime de agentes, canales y herramientas, consumido por `api/`.
 - `docker-compose.yml`: despliegue y red.
 - `data/`: volúmenes persistentes locales.
 

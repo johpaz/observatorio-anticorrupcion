@@ -261,7 +261,29 @@ export const alertasApi = {
     fetchData('/alertas/sectores').then(d => d.sectores ?? []),
 }
 
+export interface CandidatoContratista {
+  nit: string
+  nombre: string
+  tipo?: string
+  ubicacion?: string
+  nivel_riesgo?: 'ROJO' | 'AMARILLO' | 'VERDE'
+  score_total?: number
+  fuentes: ('score' | 'secop' | 'sanciones')[]
+  sanciones?: string[]
+}
+
+export interface BusquedaContratista {
+  query: string
+  candidatos: CandidatoContratista[]
+  fuentes_fallidas: string[]
+}
+
+/** Un NIT o cédula son solo números; cualquier texto con letras se busca como nombre o razón social. */
+export const esBusquedaPorNombre = (q: string): boolean => /[a-záéíóúñü]/i.test(q)
+
 export const contratistaApi = {
+  buscar: (q: string): Promise<BusquedaContratista> =>
+    fetchData('/contratista/buscar', { q }),
   get: (nit: string, refresh = false): Promise<ContratistaResponse> =>
     fetchData(`/contratista/${encodeURIComponent(nit)}`, refresh ? { refresh: '1' } : {}),
 }

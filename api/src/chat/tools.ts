@@ -1,6 +1,6 @@
 import { db } from '../db/client'
-import type { LLMToolDef } from '@johpaz/hive-agents-core/agent/llm-client'
-import { WEB_FUNCTION_DECLARATIONS, executeWebTool, isWebTool } from './web-tools'
+import { buscarPorNombre, esNombre } from '../services/buscador'
+import type { LLMToolDef } from '@johpaz/hive-sdk'
 
 const PROCURADURIA_URL = Bun.env.PROCURADURIA_URL ?? 'http://localhost:3000'
 
@@ -9,7 +9,7 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
     type: 'function',
     function: {
       name: 'buscar_contratista',
-      description: 'Busca contratistas en la base de datos de scores SECOP II por nombre, NIT o sector.',
+      description: 'Busca contratistas por nombre, razón social, NIT o cédula en SECOP II, los registros de sanciones y los scores ya calculados. Devuelve el NIT de cada coincidencia y si registra antecedentes.',
       parameters: {
         type: 'object',
         properties: {
@@ -62,14 +62,17 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
       },
     },
   },
-  ...WEB_FUNCTION_DECLARATIONS,
 ]
 
 export async function executeTool(name: string, args: Record<string, any>): Promise<any> {
   try {
-    if (isWebTool(name)) return await executeWebTool(name, args)
-
     if (name === 'buscar_contratista') {
+      if (esNombre(String(args.query ?? ''))) {
+        const r = await buscarPorNombre(String(args.query))
+        return r.candidatos.length > 0
+          ? { candidatos: r.candidatos.slice(0, 8), fuentes_fallidas: r.fuentes_fallidas, nota: 'Coincidir por nombre no confirma identidad: verifica el NIT antes de concluir.' }
+          : { mensaje: 'No se encontraron contratistas con ese criterio', fuentes_fallidas: r.fuentes_fallidas }
+      }
       const q = `%${args.query}%`
       const rows = db.query(
         `SELECT nit, nombre, score_total, nivel_riesgo, sector FROM scores

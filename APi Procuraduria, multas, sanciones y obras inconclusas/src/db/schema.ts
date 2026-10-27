@@ -101,4 +101,71 @@ export function createSchema() {
   db.run(`CREATE INDEX IF NOT EXISTS idx_multas_nit            ON multas_secop(nit_entidad)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_obras_depto           ON obras(departamento)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_obras_estado          ON obras(estado)`);
+
+  migrateRefreshColumns();
+}
+
+function hasColumn(table: string, column: string): boolean {
+  const db = getDb();
+  return (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column);
+}
+
+/**
+ * Soporte para la actualización semanal desde datos.gov.co.
+ * `clave` identifica una sanción de forma estable para hacer upsert sin perder
+ * el histórico que ya estaba cargado desde los CSV de PACO.
+ */
+export function migrateRefreshColumns() {
+  const db = getDb();
+
+  for (const table of ["disciplinarios", "multas_secop"]) {
+    if (!hasColumn(table, "clave"))          db.run(`ALTER TABLE ${table} ADD COLUMN clave TEXT`);
+    if (!hasColumn(table, "fuente"))         db.run(`ALTER TABLE ${table} ADD COLUMN fuente TEXT NOT NULL DEFAULT 'csv-paco'`);
+    if (!hasColumn(table, "actualizado_at")) db.run(`ALTER TABLE ${table} ADD COLUMN actualizado_at INTEGER`);
+  }
+
+  // El índice único se recrea al final: en una instalación nueva, la siembra de CSV deja filas
+  // repetidas con clave NULL y el relleno de la clave chocaría con un índice ya existente.
+  db.run(`DROP INDEX IF EXISTS idx_disc_clave`);
+  db.run(`DROP INDEX IF EXISTS idx_multas_clave`);
+
+  // Backfill de la clave en filas cargadas desde CSV y eliminación de duplicados exactos
+  db.run(`UPDATE disciplinarios SET clave = trim(id_sancion) || '|' || trim(documento) || '|' || trim(tipo_sancion_aplicada) || '|' || trim(fecha_sancion) WHERE clave IS NULL`);
+  db.run(`UPDATE multas_secop SET clave = trim(ref_contrato) || '|' || trim(resolucion) || '|' || trim(cedula_responsable) WHERE clave IS NULL`);
+  db.run(`DELETE FROM disciplinarios WHERE id NOT IN (SELECT MIN(id) FROM disciplinarios GROUP BY clave)`);
+  db.run(`DELETE FROM multas_secop WHERE id NOT IN (SELECT MIN(id) FROM multas_secop GROUP BY clave)`);
+  // Los CSV de PACO traen filas idénticas repetidas (en obras, cada una ~10 veces).
+  // Se eliminan solo las que coinciden en todas las columnas de contenido.
+  db.run(`DELETE FROM fiscales WHERE id NOT IN (
+    SELECT MIN(id) FROM fiscales
+    GROUP BY responsable, documento, entidad_afectada, tr, r, ente_reporta, departamento, municipio)`);
+  db.run(`DELETE FROM obras WHERE id NOT IN (
+    SELECT MIN(id) FROM obras
+    GROUP BY cod_entidad, cod_obra, departamento, ciudad, sector, grupo, nombre_entidad, objeto,
+             valor_contrato, fecha_inicio, estado, clase_obra, avance, identificacion, nombre_contratista)`);
+  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_disc_clave   ON disciplinarios(clave)`);
+  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_multas_clave ON multas_secop(clave)`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS sanciones_sic (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    clave     TEXT NOT NULL UNIQUE,
+    radicado  TEXT,
+    resolucion TEXT,
+    fecha     TEXT,
+    multado   TEXT,
+    valor     REAL,
+    conducta  TEXT,
+    sector    TEXT
+  )`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_sic_multado ON sanciones_sic(multado)`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS fuentes_meta (
+    fuente          TEXT PRIMARY KEY,
+    origen          TEXT NOT NULL,
+    actualizado_at  INTEGER,
+    intento_at      INTEGER,
+    filas_origen    INTEGER,
+    filas_nuevas    INTEGER,
+    error           TEXT
+  )`);
 }

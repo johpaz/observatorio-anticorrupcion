@@ -6,21 +6,45 @@
 import { describe, test, expect } from 'bun:test'
 import { flagPoints, flagShort, flagLabel, scoreBreakdown, parseFlag, CATEGORIAS } from '../src/utils/flags'
 
-describe('flagPoints: puntaje exacto por bandera (promesa de la landing)', () => {
+// Misma tabla que api/tests/scorer.test.ts (CASOS_PARIDAD): si una cambia, cambia la otra.
+const CASOS_PARIDAD: [string, number][] = [
+  ['VENCIDOS_SIN_CERRAR(1/1)', 42],
+  ['VENCIDOS_SIN_CERRAR(4/4)', 75],
+  ['VENCIDOS_SIN_CERRAR(3/23)', 15],
+  ['VENCIDOS_SIN_CERRAR(3/400)', 0],
+  ['EXTENSION_MAYOR_1_ANO(1/1)', 20],
+  ['EXTENSION_MAYOR_1_ANO(1/3)', 13],
+  ['EXTENSION_MAYOR_1_ANO(1/100)', 0],
+  ['MULTIPLES_ADICIONES(3/3)', 15],
+  ['MULTIPLES_ADICIONES(3/20)', 0],
+  ['MULTIPLES_ADICIONES(2/2)', 0],
+  ['CONCENTRACION_ENTIDADES(5/5)', 10],
+  ['CONCENTRACION_ENTIDADES(5/20)', 0],
+  ['BAJA_EJECUCION(1/1)', 15],
+  ['BAJA_EJECUCION(1/20)', 0],
+  ['SANCIONADO_DISCIPLINARIO', 30],
+  ['RESPONSABILIDAD_FISCAL', 25],
+  ['MULTA_SECOP', 15],
+  ['ANOMALIA_ESTADISTICA(-0.50)', 30],
+  ['ANOMALIA_ESTADISTICA(-0.275)', 15],
+  ['ANOMALIA_ESTADISTICA(-0.05)', 0],
+]
+
+describe('flagPoints: paridad exacta con el scorer del backend', () => {
+  test.each(CASOS_PARIDAD)('%s → %d pts', (flag, esperado) => {
+    expect(flagPoints(flag)).toBe(esperado)
+  })
+})
+
+describe('flagPoints: banderas guardadas con el formato anterior (sin total)', () => {
+  // Scores ya calculados en la base antes del despliegue se siguen mostrando hasta que se recalculan.
   test.each([
     ['VENCIDOS_SIN_CERRAR(1)', 25],
-    ['VENCIDOS_SIN_CERRAR(3)', 75],
-    ['VENCIDOS_SIN_CERRAR(5)', 75], // tope
+    ['VENCIDOS_SIN_CERRAR(5)', 75],
     ['EXTENSION_MAYOR_1_ANO', 20],
     ['MULTIPLES_ADICIONES(4)', 15],
     ['CONCENTRACION_ENTIDADES(6)', 10],
     ['BAJA_EJECUCION(2)', 15],
-    ['SANCIONADO_DISCIPLINARIO', 30],
-    ['RESPONSABILIDAD_FISCAL', 25],
-    ['MULTA_SECOP', 15],
-    ['ANOMALIA_ESTADISTICA(-0.50)', 30],
-    ['ANOMALIA_ESTADISTICA(-0.275)', 15],
-    ['ANOMALIA_ESTADISTICA(-0.05)', 0],
   ] as [string, number][])('%s → %d pts', (flag, esperado) => {
     expect(flagPoints(flag)).toBe(esperado)
   })
@@ -68,7 +92,8 @@ describe('scoreBreakdown', () => {
 
 describe('parseFlag y etiquetas', () => {
   test('extrae el parámetro numérico del código', () => {
-    expect(parseFlag('VENCIDOS_SIN_CERRAR(3)')).toMatchObject({ code: 'VENCIDOS_SIN_CERRAR', n: 3 })
+    expect(parseFlag('VENCIDOS_SIN_CERRAR(3)')).toMatchObject({ code: 'VENCIDOS_SIN_CERRAR', n: 3, total: undefined })
+    expect(parseFlag('VENCIDOS_SIN_CERRAR(3/25)')).toMatchObject({ code: 'VENCIDOS_SIN_CERRAR', n: 3, total: 25 })
     expect(parseFlag('ANOMALIA_ESTADISTICA(-0.31)')).toMatchObject({ code: 'ANOMALIA_ESTADISTICA', n: -0.31 })
     expect(parseFlag('MULTA_SECOP')).toMatchObject({ code: 'MULTA_SECOP', n: undefined })
   })

@@ -1,14 +1,12 @@
-import { ChannelManager } from '@johpaz/hive-agents-core/channels/manager'
-import { initializeDatabase } from '@johpaz/hive-agents-core/storage/sqlite'
+import { ChannelManager, ensureHiveDb, type Config, type IncomingMessage, type OutboundMessage } from '@johpaz/hive-sdk'
 import { handleChatMessage } from '../chat/handler'
-import type { Config } from '@johpaz/hive-agents-core/config/loader'
 import { join } from 'path'
 import { createLogger } from '../utils/logger'
 import { clearChatHistory, resolveChatThread } from '../db/client'
 import { withThreadLock } from '../chat/thread-lock'
 import { getToolNarration } from './narration'
+import { installTelegramFormatting } from './telegram-format'
 import type { ChatHandlerOptions, ChatHandlerResult } from '../chat/handler'
-import type { IncomingMessage, OutboundMessage } from '@johpaz/hive-agents-core/channels/base'
 
 interface ChannelTransport {
   send(channel: string, sessionId: string, message: Omit<OutboundMessage, 'sessionId'>): Promise<void>
@@ -96,7 +94,7 @@ export async function startChannels(): Promise<void> {
   process.env.HIVE_HOME ??= join(process.cwd(), '.hive-data')
 
   try {
-    initializeDatabase()
+    await ensureHiveDb({ seed: 'minimal' })
   } catch (err) {
     log.error(`Failed to initialize Hive database: ${(err as Error).message}`)
   }
@@ -136,6 +134,8 @@ export async function startChannels(): Promise<void> {
       },
     }
   }
+
+  installTelegramFormatting()
 
   const config: Config = { channels: channelsConfig } as Config
   const channelManager = new ChannelManager(config)

@@ -11,6 +11,8 @@ import { disciplinariosRoutes } from "./routes/disciplinarios";
 import { multasRoutes } from "./routes/multas";
 import { obrasRoutes } from "./routes/obras";
 import { searchRoutes } from "./routes/search";
+import { adminRoutes } from "./routes/admin";
+import { startRefreshScheduler } from "./services/refresh";
 
 createSchema();
 
@@ -67,7 +69,13 @@ const app = new Elysia()
   .use(multasRoutes)
   .use(obrasRoutes)
   .use(searchRoutes)
+  .use(adminRoutes)
   .listen(Number(Bun.env.PORT ?? 3000));
+
+startRefreshScheduler();
+
+// Como PID 1 del contenedor, Bun ignora SIGTERM: sin esto `compose down` espera 10 s y mata el proceso.
+for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, () => process.exit(0));
 
 log.info(`API corriendo en http://localhost:${Bun.env.PORT ?? 3000}`);
 log.info(`Swagger disponible en http://localhost:${Bun.env.PORT ?? 3000}/swagger`);

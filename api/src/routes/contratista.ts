@@ -2,9 +2,19 @@ import { Elysia, t } from 'elysia'
 import { db } from '../db/client'
 import { scoreNit } from '../services/scorer'
 import { getSanciones } from '../services/procuraduria'
+import { buscarPorNombre } from '../services/buscador'
 
 export const contratistaRoutes = new Elysia({ prefix: '/api/contratista' })
   .onError(({ error, set }) => { set.status = 500; return { error: String(error) } })
+
+  // Búsqueda por nombre o razón social; debe declararse antes de '/:nit'
+  .get('/buscar', async ({ query, set }) => {
+    const q = query.q.trim()
+    if (q.length < 3) { set.status = 400; return { error: 'Escribe al menos 3 caracteres' } }
+    return buscarPorNombre(q)
+  }, {
+    query: t.Object({ q: t.String() }),
+  })
 
   .get('/:nit', async ({ params, query }) => {
     const nit = decodeURIComponent(params.nit).trim()

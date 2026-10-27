@@ -1,10 +1,23 @@
 import { Elysia, t } from 'elysia'
+import { createLogger } from '../utils/logger'
 import { cachedDashboard, canonicalCacheKey } from '../services/dashboard-cache'
 import {
   loadArchivosDashboard,
   loadContratosDashboard,
   loadDashboardBootstrap,
 } from '../services/dashboard-data'
+
+const log = createLogger('dashboard')
+
+/** Precalcula el bootstrap del dashboard para que la primera visita no espere a Socrata. */
+export async function warmupDashboard(): Promise<void> {
+  try {
+    await cachedDashboard('dashboard:bootstrap:v1', loadDashboardBootstrap)
+    log.info('warmup: dashboard precalculado')
+  } catch (err) {
+    log.warn(`warmup: dashboard falló: ${String(err)}`)
+  }
+}
 
 const refreshQuery = t.Optional(t.String())
 

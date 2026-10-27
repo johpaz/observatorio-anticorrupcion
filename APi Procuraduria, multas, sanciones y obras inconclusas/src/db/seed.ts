@@ -2,7 +2,7 @@ import { parse as csvParse } from "csv-parse/sync";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { getDb } from "./database";
-import { createSchema } from "./schema";
+import { createSchema, migrateRefreshColumns } from "./schema";
 import { createLogger } from "../utils/logger";
 
 const log = createLogger("seed");
@@ -249,6 +249,9 @@ export function runSeed(): void {
   seedDisciplinarios();
   seedMultas();
   seedObras();
+
+  // Las filas recién sembradas necesitan su clave antes del primer refresh
+  migrateRefreshColumns();
 
   log.info("\nSeed completado.");
 }

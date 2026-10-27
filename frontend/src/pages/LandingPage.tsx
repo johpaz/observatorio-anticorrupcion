@@ -5,11 +5,11 @@ import { formatCOP } from '../utils/formatters'
 import { dashboardApi } from '../api/client'
 
 const FLAGS = [
-  { code: 'VENCIDOS_SIN_CERRAR(n)', pts: '+25 c/u · máx 75', desc: 'Contratos con estado "En ejecución" cuya fecha de fin venció hace más de 6 meses sin liquidar.' },
-  { code: 'EXTENSION_MAYOR_1_ANO', pts: '+20', desc: 'Al menos un contrato acumula más de 365 días adicionales sobre su plazo original.' },
-  { code: 'MULTIPLES_ADICIONES(n)', pts: '+15', desc: '3 o más contratos con extensiones de plazo (cuando no aplica la bandera anterior).' },
-  { code: 'CONCENTRACION_ENTIDADES(n)', pts: '+10', desc: 'Relaciones con 5 o más entidades públicas distintas en el mismo sector.' },
-  { code: 'BAJA_EJECUCION(n)', pts: '+15', desc: 'Contratos terminados o cancelados, superiores a $5M, donde el valor facturado fue < 50 % del adjudicado.' },
+  { code: 'VENCIDOS_SIN_CERRAR(n)', pts: 'hasta +75', desc: 'Contratos "En ejecución" cuya fecha de fin venció hace más de 6 meses sin liquidar. Puntúa según el porcentaje de sus contratos afectados (desde 5 %), no por cantidad.' },
+  { code: 'EXTENSION_MAYOR_1_ANO', pts: 'hasta +20', desc: 'Contratos con más de 365 días adicionales sobre su plazo original. Puntúa según el porcentaje de sus contratos afectados (desde 5 %).' },
+  { code: 'MULTIPLES_ADICIONES(n)', pts: 'hasta +15', desc: '3 o más contratos con extensiones de plazo que sean al menos el 30 % de sus contratos (cuando no aplica la bandera anterior).' },
+  { code: 'CONCENTRACION_ENTIDADES(n)', pts: '+10', desc: 'Casi cada contrato con una entidad distinta: 5 o más entidades y al menos el 40 % de sus contratos.' },
+  { code: 'BAJA_EJECUCION(n)', pts: 'hasta +15', desc: 'Contratos terminados o cancelados, superiores a $5M, donde lo facturado fue < 50 % del adjudicado. Puntúa según el porcentaje de esos contratos (desde 10 %).' },
   { code: 'SANCIONADO_DISCIPLINARIO', pts: '+30', desc: 'El NIT figura en el registro SIRI de la Procuraduría General de la Nación.' },
   { code: 'RESPONSABILIDAD_FISCAL', pts: '+25', desc: 'El NIT tiene fallos de responsabilidad fiscal en la Contraloría General.' },
   { code: 'MULTA_SECOP', pts: '+15', desc: 'El NIT tiene multas impuestas en contratos SECOP registradas por la entidad contratante.' },
@@ -209,7 +209,7 @@ export default function LandingPage() {
               {
                 n: '02',
                 title: 'Scoring por reglas + sanciones',
-                body: 'Nueve banderas automáticas evalúan el historial: contratos vencidos sin cerrar, extensiones desmedidas, baja ejecución, concentración de entidades y registros de Procuraduría/CGR.',
+                body: 'Nueve banderas automáticas evalúan el historial: contratos vencidos sin cerrar, extensiones desmedidas, baja ejecución, concentración de entidades y registros de Procuraduría/CGR. Las de contratos puntúan por proporción, no por cantidad: tener muchos contratos no suma riesgo por sí solo.',
                 color: 'text-[#CE1126]',
                 border: 'border-[#CE1126]/20',
               },

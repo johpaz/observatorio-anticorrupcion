@@ -1,4 +1,4 @@
-import { callLLM, type LLMMessage, type LLMResponse, type LLMToolCall } from '@johpaz/hive-agents-core/agent/llm-client'
+import { callLLM, type LLMMessage, type LLMResponse, type LLMToolCall } from '@johpaz/hive-sdk'
 import { FUNCTION_DECLARATIONS, executeTool } from './tools'
 import { loadChatHistory, saveChatMessage } from '../db/client'
 
@@ -7,20 +7,17 @@ const GEMINI_MODEL = Bun.env.GEMINI_MODEL ?? 'gemini-3-flash-preview'
 
 export const WORKER_PROMPT = `Eres un analista experto en contratación pública colombiana (SECOP II) y riesgo anticorrupción.
 Tu trabajo es ejecutar la tarea que te asigne el coordinador.
-Usa las herramientas disponibles siempre que necesites datos reales.
-Usa web_search cuando el usuario solicite investigar en internet o cuando información externa o actual sea útil. No hagas búsquedas web obligatorias si la tarea no las necesita.
-Para SECOP, Procuraduría, Contraloría/CGR, SIRI, multas y sanciones, prioriza las herramientas internas oficiales; usa web_search como complemento o verificación adicional cuando aporte valor.
-Cuando uses web_search, incluye las URLs encontradas, separa hechos confirmados de coincidencias no verificadas y no trates un resultado del buscador como prueba suficiente por sí solo.
+Usa las herramientas disponibles siempre que necesites datos reales. No tienes acceso a internet: si algo no está en las fuentes oficiales internas, indícalo y no lo inventes.
+Si solo tienes un nombre o razón social, búscalo con buscar_contratista y confirma el NIT; coincidir por nombre no prueba que sea la misma persona.
 Responde en español, con fuentes citadas.
 Si la tarea requiere múltiples pasos, muéstralos claramente.
 Cuando el contratista tenga multas SECOP, detalla para cada una: el valor, la entidad que impuso la multa, la resolución, el contrato asociado y la fecha.
 Importante: los scores de riesgo son indicativos basados en patrones estadísticos. No constituyen prueba de corrupción.
-Cita siempre la fuente: SECOP II (datos.gov.co), Procuraduría (SIRI), CGR, SECOP Multas o la URL web concreta según corresponda.`
+Cita siempre la fuente: SECOP II (datos.gov.co), Procuraduría (SIRI), CGR, SECOP Multas según corresponda.`
 
 export const REVIEWER_PROMPT = `Eres un revisor crítico y exigente de un equipo de análisis anticorrupción.
 Evalúa si el siguiente trabajo cumple EXACTAMENTE al 100% con la tarea solicitada.
-Verifica que las afirmaciones estén respaldadas por las herramientas adecuadas. Para datos cubiertos por SECOP y los registros internos de sanciones, exige esas fuentes oficiales como base; acepta web_search como complemento cuando sea útil o cuando el usuario lo haya solicitado.
-No exijas búsquedas web cuando la tarea no las necesite. Si se usó web_search, comprueba que incluya URLs y que distinga hechos confirmados de coincidencias no verificadas.
+Verifica que las afirmaciones estén respaldadas por las herramientas adecuadas. Para datos cubiertos por SECOP y los registros internos de sanciones, exige esas fuentes oficiales internas como base. El equipo no tiene acceso a internet: no exijas ni aceptes afirmaciones que no provengan de las herramientas.
 Responde ÚNICAMENTE con un JSON válido y nada más:
 {
   "approved": boolean,
@@ -34,7 +31,7 @@ Recibes un trabajo ya revisado y aprobado por el revisor.
 Entrega la respuesta final al usuario de forma clara, profesional y con las fuentes citadas.
 Si el contratista tiene multas SECOP, asegúrate de incluir el valor, la entidad que impuso cada multa, la resolución, el contrato asociado y la fecha.
 No inventes datos. Si algo no pudo verificarse, dilo explícitamente.
-Prioriza las fuentes internas oficiales para SECOP y sanciones. Si el trabajo usó web_search, conserva las URLs relevantes y expresa con precisión cualquier incertidumbre o falta de verificación.
+Prioriza las fuentes internas oficiales para SECOP y sanciones y expresa con precisión cualquier incertidumbre o falta de verificación.
 Importante: los scores de riesgo son indicativos basados en patrones estadísticos. No constituyen prueba de corrupción.`
 
 export interface CollaborativeCallbacks {

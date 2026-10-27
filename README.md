@@ -84,7 +84,7 @@ El stack está compuesto por cuatro capas principales:
 | Frontend | frontend/ | 5173 | Interfaz web del dashboard |
 | API principal | api/ | 3001 | API principal del sistema |
 | Procuraduría | APi Procuraduria, multas, sanciones y obras inconclusas/ | 3000 | Servicio de datos institucionales |
-| Hive Agents | hive agents/ | 4000 | Agentes y orquestación de IA |
+| Hive Agents | `@johpaz/hive-sdk` (dentro de `api/`) | 3001 | Agentes y orquestación de IA |
 
 ## Tecnologías
 
@@ -99,7 +99,7 @@ El stack está compuesto por cuatro capas principales:
 - api/: API principal del proyecto
 - frontend/: aplicación web del dashboard
 - APi Procuraduria, multas, sanciones y obras inconclusas/: servicio de procuraduría y datos relacionados
-- hive agents/: motor de agentes e integración con IA
+- `@johpaz/hive-sdk`: motor de agentes, canales y herramientas, usado desde `api/`
 - docker-compose.yml: orquestación de servicios con Docker
 - dev.ts: script para levantar el stack completo en desarrollo
 

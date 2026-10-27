@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import SemaforoCard from '../components/SemaforoCard'
 import KPICard from '../components/KPICard'
 import DataTable from '../components/DataTable'
-import { contratistaApi } from '../api/client'
-import type { ContratistaResponse } from '../api/client'
+import { contratistaApi, esBusquedaPorNombre } from '../api/client'
+import type { ContratistaResponse, BusquedaContratista } from '../api/client'
 import { useContratistasStore } from '../store/useContratistasStore'
 import { formatCOP, formatDate } from '../utils/formatters'
 import { useSeo } from '../utils/useSeo'
@@ -23,7 +23,11 @@ export default function ContratistasPage() {
   useSeo('Consulta de Contratistas y Sanciones', 'Verifica antecedentes de contratistas del Estado colombiano por NIT o nombre: sanciones de Procuraduría, responsabilidad fiscal y historial en SECOP II.')
   const { nit: nitParam } = useParams<{ nit?: string }>()
   const navigate = useNavigate()
-  const [searchInput, setSearchInput] = useState(nitParam ?? '')
+  const [searchParams] = useSearchParams()
+  const nombreParam = searchParams.get('q') ?? ''
+  const [searchInput, setSearchInput] = useState(nitParam ?? nombreParam)
+  const [busqueda, setBusqueda] = useState<BusquedaContratista | null>(null)
+  const [buscando, setBuscando] = useState(false)
   const { loading, setLoading, getProfile, saveProfile } = useContratistasStore()
   const [profile, setProfile] = useState<ContratistaResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,10 +47,29 @@ export default function ContratistasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nitParam])
 
+  // Búsqueda por nombre o razón social: lista de candidatos para elegir
+  useEffect(() => {
+    if (nitParam || !nombreParam) { setBusqueda(null); return }
+    let activo = true
+    setSearchInput(nombreParam)
+    setBuscando(true)
+    setError(null)
+    contratistaApi.buscar(nombreParam)
+      .then(r => { if (activo) setBusqueda(r) })
+      .catch(e => { if (activo) setError(String(e)) })
+      .finally(() => { if (activo) setBuscando(false) })
+    return () => { activo = false }
+  }, [nitParam, nombreParam])
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = searchInput.trim()
     if (!trimmed) return
+    if (esBusquedaPorNombre(trimmed)) {
+      if (trimmed.length < 3) { setError('Escribe al menos 3 caracteres del nombre o razón social'); return }
+      navigate(`/contratistas?q=${encodeURIComponent(trimmed)}`)
+      return
+    }
     navigate(`/contratistas/${encodeURIComponent(trimmed)}`)
   }
 
@@ -57,14 +80,15 @@ export default function ContratistasPage() {
     <div className="p-8 space-y-6 rise text-slate-800 bg-[var(--bg-main)]">
       <div>
         <h1 className="serif text-2xl font-bold tracking-tight text-[#004884]">Perfil de Contratista</h1>
-        <p className="text-sm text-slate-600 mt-1 font-medium">Consulta el historial analítico y el nivel de riesgo global por NIT</p>
+        <p className="text-sm text-slate-600 mt-1 font-medium">Consulta el historial analítico y el nivel de riesgo global por NIT, cédula, nombre o razón social</p>
       </div>
 
       <form onSubmit={handleSearch} className="flex gap-3">
         <input
           value={searchInput}
           onChange={e => setSearchInput(e.target.value)}
-          placeholder="Ingrese NIT del contratista (ej. 900073223)"
+          placeholder="NIT, cédula, nombre o razón social (ej. 900073223 o Servientrega)"
+          aria-label="NIT, cédula, nombre o razón social del contratista"
           className="field flex-1 shadow-sm"
         />
         <button
@@ -77,6 +101,59 @@ export default function ContratistasPage() {
           </svg>
         </button>
       </form>
+
+      {buscando && (
+        <div className="py-12 text-center text-slate-500 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <p className="text-sm font-bold text-slate-800">Buscando “{nombreParam}”…</p>
+          <p className="text-xs mt-1 text-slate-500 font-medium">Consultando SECOP II, sanciones y contratistas ya analizados</p>
+        </div>
+      )}
+
+      {!buscando && busqueda && !nitParam && (
+        <div className="card p-5 space-y-3 border border-slate-200 bg-white" role="region" aria-label="Resultados de la búsqueda por nombre">
+          <h3 className="text-xs font-bold text-slate-650 serif uppercase tracking-wider">
+            {busqueda.candidatos.length} coincidencia(s) para “{busqueda.query}”
+          </h3>
+          {busqueda.fuentes_fallidas.length > 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-semibold">
+              No respondieron: {busqueda.fuentes_fallidas.map(f => ({ score: 'contratistas analizados', secop: 'SECOP II', sanciones: 'sanciones' }[f] ?? f)).join(', ')}. Los resultados pueden estar incompletos.
+            </p>
+          )}
+          {busqueda.candidatos.length === 0 ? (
+            <p className="text-sm text-slate-600 font-medium">
+              Sin coincidencias. Prueba con otra parte del nombre, sin siglas (S.A., LTDA) o busca por NIT o cédula.
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {busqueda.candidatos.map(c => (
+                <li key={c.nit}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/contratistas/${encodeURIComponent(c.nit)}`)}
+                    className="w-full text-left py-3 px-2 flex items-center justify-between gap-4 hover:bg-slate-50 rounded-lg"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-sm text-[#004884] truncate">{c.nombre}</span>
+                      <span className="block font-mono text-xs text-slate-500">
+                        {c.nit}{c.tipo ? ` · ${c.tipo}` : ''}{c.ubicacion ? ` · ${c.ubicacion}` : ''}
+                      </span>
+                      {c.sanciones && c.sanciones.length > 0 && (
+                        <span className="block text-xs text-rose-700 font-semibold mt-0.5">
+                          ⚠️ Registra: {c.sanciones.join(' · ')}
+                        </span>
+                      )}
+                    </span>
+                    {c.nivel_riesgo && (
+                      <span className="text-xs font-bold shrink-0 text-slate-600">{c.nivel_riesgo} · {Math.round(c.score_total ?? 0)}</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-xs text-slate-500">Coincidir por nombre no confirma que sea la misma persona: verifica el NIT o la cédula antes de sacar conclusiones.</p>
+        </div>
+      )}
 
       {loading && (
         <div className="py-20 text-center text-slate-500 bg-white border border-slate-200 rounded-xl shadow-sm">
@@ -221,10 +298,10 @@ export default function ContratistasPage() {
         </>
       )}
 
-      {!loading && !profile && !error && !nitParam && (
+      {!loading && !buscando && !profile && !error && !nitParam && !nombreParam && (
         <div className="py-24 text-center">
           <div className="text-5xl mb-4 animate-pulse">🔍</div>
-          <p className="text-sm text-slate-600 font-bold">Ingrese un NIT para consultar el perfil de riesgo del contratista</p>
+          <p className="text-sm text-slate-600 font-bold">Ingrese un NIT, cédula, nombre o razón social para consultar el perfil de riesgo</p>
           <p className="text-xs text-slate-500 mt-2 font-mono">Ejemplos válidos: 900073223 · 800125697 · 830002397</p>
         </div>
       )}

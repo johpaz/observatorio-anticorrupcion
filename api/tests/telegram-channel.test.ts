@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, mock, test } from 'bun:test'
 import { join } from 'path'
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
-import type { IncomingMessage, OutboundMessage } from '@johpaz/hive-agents-core/channels/base'
+import type { IncomingMessage, OutboundMessage } from '@johpaz/hive-sdk'
 
 process.env.ANTICORRUP_DB_PATH = join(mkdtempSync(join(tmpdir(), 'telegram-channel-test-')), 'test.db')
 process.env.GEMINI_API_KEY = 'test-key'
@@ -49,7 +49,7 @@ function geminiText(text: string): object {
 
 const { initDb, loadVisibleChatHistory } = await import('../src/db/client')
 const { handleIncomingChannelMessage } = await import('../src/channels')
-const { markdownToTelegramHTML } = await import('@johpaz/hive-agents-core/channels/telegram')
+const { markdownToTelegramHTML } = await import('../src/channels/telegram-format')
 
 beforeAll(() => initDb())
 

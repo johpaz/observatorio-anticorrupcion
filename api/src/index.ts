@@ -2,10 +2,11 @@ import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { contratosRoutes } from './routes/contratos'
 import { archivosRoutes } from './routes/archivos'
-import { alertasRoutes, warmupAlertas } from './routes/alertas'
+
 import { contratistaRoutes } from './routes/contratista'
 import { chatRoutes } from './routes/chat'
-import { dashboardRoutes } from './routes/dashboard'
+import { alertasRoutes, warmupAlertas } from './routes/alertas'
+import { dashboardRoutes, warmupDashboard } from './routes/dashboard'
 import { initDb } from './db/client'
 import { startChannels } from './channels'
 import { createLogger } from './utils/logger'
@@ -23,6 +24,9 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   log.error('unhandledRejection', reason)
 })
+
+// Como PID 1 del contenedor, Bun ignora SIGTERM: sin esto `compose down` espera 10 s y mata el proceso.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) process.on(signal, () => process.exit(0))
 
 const PORT = Number(Bun.env.PORT) || 3001
 
@@ -50,4 +54,5 @@ new Elysia()
 // Desactivable con ALERTAS_WARMUP=0 (tests e2e, entornos sin red).
 if (Bun.env.ALERTAS_WARMUP !== '0') {
   setTimeout(() => { warmupAlertas() }, 3_000)
+  setTimeout(() => { warmupDashboard() }, 3_000)
 }

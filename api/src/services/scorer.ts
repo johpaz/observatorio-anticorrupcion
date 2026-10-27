@@ -3,6 +3,7 @@ import { socrataQuery } from './socrata'
 import { db, DB_PATH } from '../db/client'
 import { checkSanciones } from './procuraduria'
 import { createLogger } from '../utils/logger'
+import { REGLAS, puntosAdiciones, puntosAnomalia, puntosConcentracion, puntosPorTasa } from './scoring-rules'
 
 const log = createLogger('scorer')
 
@@ -93,8 +94,7 @@ function applyMlScores(sector: string, results: ScoreResult[]): void {
     if (result.flags.some(f => f.startsWith('ANOMALIA'))) continue
 
     // Map: score=-0.5 → +30pts, score=-0.05 → +0pts (linear)
-    const mlPts = Math.round((-anomalyScore - 0.05) / 0.45 * 30)
-    const bonus = Math.min(mlPts, 30)
+    const bonus = puntosAnomalia(anomalyScore)
     result.score_total += bonus
     result.nivel_riesgo = nivelFromScore(result.score_total)
     result.flags.push(`ANOMALIA_ESTADISTICA(${anomalyScore.toFixed(2)})`)
@@ -156,7 +156,10 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
   let score = 0
   const now = Date.now()
 
-  // Flag A: "En ejecución" contracts past end date > 6 months (+25 each, cap 75)
+  // Las banderas A-E puntúan por proporción de contratos afectados (ver scoring-rules.ts)
+  const total = contracts.length
+
+  // Flag A: "En ejecución" contracts past end date > 6 months
   let overdueCount = 0
   for (const c of contracts) {
     if (!c.fecha_de_fin_del_contrato) continue
@@ -166,43 +169,51 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
     const isActive = estadoNorm.includes('ejecuci') || estadoNorm.includes('prorrogado')
     if (isActive && now - endDate.getTime() > SIX_MONTHS_MS) overdueCount++
   }
-  if (overdueCount > 0) {
-    score += Math.min(overdueCount * 25, 75)
-    flags.push(`VENCIDOS_SIN_CERRAR(${overdueCount})`)
+  const ptsVencidos = puntosPorTasa(overdueCount, total, REGLAS.vencidos)
+  if (ptsVencidos > 0) {
+    score += ptsVencidos
+    flags.push(`VENCIDOS_SIN_CERRAR(${overdueCount}/${total})`)
   }
 
-  // Flag B: Significant extension — dias_adicionados > 365 (+20)
-  const hasLargeExtension = contracts.some(c => Number(c.dias_adicionados ?? 0) > 365)
-  if (hasLargeExtension) {
-    score += 20
-    flags.push('EXTENSION_MAYOR_1_ANO')
+  // Flag B: Significant extension — dias_adicionados > 365
+  const largeExtension = contracts.filter(c => Number(c.dias_adicionados ?? 0) > 365).length
+  const ptsExtension = puntosPorTasa(largeExtension, total, REGLAS.extension)
+  if (ptsExtension > 0) {
+    score += ptsExtension
+    flags.push(`EXTENSION_MAYOR_1_ANO(${largeExtension}/${total})`)
   }
 
-  // Flag C: 3+ contracts with any extension (+15)
+  // Flag C: many contracts with any extension (no se suma si ya aplica B)
   const withExtension = contracts.filter(c => Number(c.dias_adicionados ?? 0) > 0).length
-  if (!hasLargeExtension && withExtension >= 3) {
-    score += 15
-    flags.push(`MULTIPLES_ADICIONES(${withExtension})`)
+  const ptsAdiciones = ptsExtension > 0 ? 0 : puntosAdiciones(withExtension, total)
+  if (ptsAdiciones > 0) {
+    score += ptsAdiciones
+    flags.push(`MULTIPLES_ADICIONES(${withExtension}/${total})`)
   }
 
-  // Flag D: Contracts in 5+ distinct entities (+10)
+  // Flag D: casi cada contrato con una entidad distinta (5+ entidades)
   const entities = new Set(contracts.map(c => c.nombre_entidad).filter(Boolean))
-  if (entities.size >= 5) {
-    score += 10
-    flags.push(`CONCENTRACION_ENTIDADES(${entities.size})`)
+  const ptsConcentracion = puntosConcentracion(entities.size, total)
+  if (ptsConcentracion > 0) {
+    score += ptsConcentracion
+    flags.push(`CONCENTRACION_ENTIDADES(${entities.size}/${total})`)
   }
 
-  // Flag E: Low execution ratio on terminated contracts (+15)
-  const lowExecCount = contracts.filter(c => {
+  // Flag E: baja ejecución, medida sobre los contratos terminados/cancelados > $5M
+  let finishedCount = 0
+  let lowExecCount = 0
+  for (const c of contracts) {
     const valor = parseFloat(c.valor_del_contrato ?? '0')
     const facturado = parseFloat(c.valor_facturado ?? '0')
     const estadoNorm = normalizeStr(c.estado_contrato ?? '')
-    return valor > 5_000_000 && facturado / valor < 0.5
-      && (estadoNorm.includes('terminado') || estadoNorm.includes('cancelado'))
-  }).length
-  if (lowExecCount > 0) {
-    score += 15
-    flags.push(`BAJA_EJECUCION(${lowExecCount})`)
+    if (!(valor > 5_000_000) || !(estadoNorm.includes('terminado') || estadoNorm.includes('cancelado'))) continue
+    finishedCount++
+    if (facturado / valor < 0.5) lowExecCount++
+  }
+  const ptsBaja = puntosPorTasa(lowExecCount, finishedCount, REGLAS.bajaEjecucion)
+  if (ptsBaja > 0) {
+    score += ptsBaja
+    flags.push(`BAJA_EJECUCION(${lowExecCount}/${finishedCount})`)
   }
 
   // Flag F: Sanciones Procuraduría / CGR / SECOP
@@ -231,8 +242,7 @@ export async function scoreNit(nit: string): Promise<ScoreResult> {
     `SELECT anomaly_score FROM anomaly_scores WHERE nit = ?`
   ).get(nit)
   if (anomalyRow && anomalyRow.anomaly_score < -0.05) {
-    const mlPts = Math.round((-anomalyRow.anomaly_score - 0.05) / 0.45 * 30)
-    score += Math.min(mlPts, 30)
+    score += puntosAnomalia(anomalyRow.anomaly_score)
     flags.push(`ANOMALIA_ESTADISTICA(${anomalyRow.anomaly_score.toFixed(2)})`)
   }
 

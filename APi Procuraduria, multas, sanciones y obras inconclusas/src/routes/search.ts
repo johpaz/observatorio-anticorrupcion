@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { getDb } from "../db/database";
+import { coincideDocumento } from "../services/documento";
 
 export const searchRoutes = new Elysia()
 
@@ -18,6 +19,10 @@ export const searchRoutes = new Elysia()
       const limitN = Math.min(50, Math.max(1, parseInt(limit)));
       const offset = (pageN - 1) * limitN;
       const term = `%${q}%`;
+      // "juan perez" debe encontrar "JUAN CARLOS PEREZ": los términos van en orden pero admiten texto en medio
+      const tokens = q.trim().split(/\s+/);
+      const apellidoPrimero = "(apellido1 || ' ' || COALESCE(apellido2,'') || ' ' || nombre1 || ' ' || COALESCE(nombre2,''))";
+      const nombreCompleto = "(nombre1 || ' ' || COALESCE(nombre2,'') || ' ' || apellido1 || ' ' || COALESCE(apellido2,''))";
 
       const fiscales = db
         .query(`SELECT id, 'fiscal' as fuente, responsable as nombre, documento, departamento, municipio,
@@ -33,9 +38,9 @@ export const searchRoutes = new Elysia()
                        documento, depto_origen as departamento, mpio_origen as municipio,
                        institucion as entidad, tipo_sancion_aplicada as tipo_sancion
                 FROM disciplinarios
-                WHERE nombre1 LIKE ? OR apellido1 LIKE ? OR documento LIKE ? OR institucion LIKE ? OR depto_origen LIKE ?
+                WHERE ${nombreCompleto} LIKE ? OR ${apellidoPrimero} LIKE ? OR documento LIKE ? OR institucion LIKE ? OR depto_origen LIKE ?
                 LIMIT ? OFFSET ?`)
-        .all(term, term, term, term, term, limitN, offset);
+        .all(`%${tokens.join("%")}%`, `%${tokens.join("%")}%`, term, term, term, limitN, offset);
 
       const penales = db
         .query(`SELECT id, 'penal' as fuente, '' as nombre, CAST(id AS TEXT) as documento,
@@ -63,6 +68,14 @@ export const searchRoutes = new Elysia()
                 LIMIT ? OFFSET ?`)
         .all(term, term, term, term, limitN, offset);
 
+      const sic = db
+        .query(`SELECT id, 'sic' as fuente, multado as nombre, '' as documento, '' as departamento, '' as municipio,
+                       sector as entidad, conducta as tipo_sancion
+                FROM sanciones_sic
+                WHERE multado LIKE ? OR conducta LIKE ?
+                LIMIT ? OFFSET ?`)
+        .all(term, term, limitN, offset);
+
       return {
         query: q,
         results: {
@@ -71,6 +84,7 @@ export const searchRoutes = new Elysia()
           penales,
           multas,
           obras,
+          sic,
         },
         totales: {
           fiscales: fiscales.length,
@@ -78,7 +92,8 @@ export const searchRoutes = new Elysia()
           penales: penales.length,
           multas: multas.length,
           obras: obras.length,
-          total: fiscales.length + disciplinarios.length + penales.length + multas.length + obras.length,
+          sic: sic.length,
+          total: fiscales.length + disciplinarios.length + penales.length + multas.length + obras.length + sic.length,
         },
       };
     },
@@ -101,20 +116,20 @@ export const searchRoutes = new Elysia()
       const doc = documento.trim();
 
       const fiscales = db
-        .query(`SELECT * FROM fiscales WHERE documento LIKE ?`)
-        .all(`%${doc}%`);
+        .query(`SELECT * FROM fiscales WHERE ${coincideDocumento("documento", doc).sql}`)
+        .all(...coincideDocumento("documento", doc).params);
 
       const disciplinarios = db
-        .query(`SELECT * FROM disciplinarios WHERE documento LIKE ?`)
-        .all(`%${doc}%`);
+        .query(`SELECT * FROM disciplinarios WHERE ${coincideDocumento("documento", doc).sql}`)
+        .all(...coincideDocumento("documento", doc).params);
 
       const multas = db
-        .query(`SELECT * FROM multas_secop WHERE cedula_responsable LIKE ?`)
-        .all(`%${doc}%`);
+        .query(`SELECT * FROM multas_secop WHERE ${coincideDocumento("cedula_responsable", doc).sql}`)
+        .all(...coincideDocumento("cedula_responsable", doc).params);
 
       const obras = db
-        .query(`SELECT * FROM obras WHERE identificacion LIKE ?`)
-        .all(`%${doc}%`);
+        .query(`SELECT * FROM obras WHERE ${coincideDocumento("identificacion", doc).sql}`)
+        .all(...coincideDocumento("identificacion", doc).params);
 
       const resumen = {
         tiene_antecedentes_fiscales:      fiscales.length > 0,
@@ -137,7 +152,7 @@ export const searchRoutes = new Elysia()
       params: t.Object({ documento: t.String() }),
       detail: {
         summary: "Perfil completo de una persona en todas las bases",
-        description: "Busca por número de documento (cédula, NIT) en fiscales, disciplinarios, multas SECOP y obras.",
+        description: "Busca por número de documento (cédula, NIT) en fiscales, disciplinarios, multas SECOP y obras. Coincidencia exacta; un NIT de empresa coincide con o sin dígito de verificación.",
         tags: ["Búsqueda"],
       },
     }
@@ -164,8 +179,11 @@ export const searchRoutes = new Elysia()
         "SELECT COALESCE(SUM(valor_contrato), 0) as s FROM obras"
       ).get() as { s: number }).s;
 
+      const fuentes = db.query("SELECT fuente, origen, actualizado_at, intento_at, filas_origen, filas_nuevas, error FROM fuentes_meta").all();
+
       return {
         totales,
+        fuentes,
         valor_total_multas,
         valor_total_contratos_obras,
         total_registros: Object.values(totales).reduce((a, b) => a + b, 0),
