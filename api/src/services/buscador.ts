@@ -1,5 +1,5 @@
 import { db } from '../db/client'
-import { socrataQuery } from './socrata'
+import { buscarProveedoresLocal } from './proveedores'
 import { createLogger } from '../utils/logger'
 
 const log = createLogger('buscador')
@@ -73,18 +73,15 @@ function buscarEnScores(toks: string[]): Candidato[] {
   }))
 }
 
+/** Registro de proveedores SECOP II guardado en SQLite (ver proveedores.ts). No consulta datos.gov.co. */
 async function buscarEnSecop(toks: string[]): Promise<Candidato[]> {
-  const like = toks.map(t => `upper(nombre) like '%${t.replace(/'/g, "''")}%'`).join(' AND ')
-  const rows = await socrataQuery('proveedores', {
-    '$select': 'nit,nombre,tipo_empresa,departamento,municipio',
-    '$where': `es_entidad='No' AND ${like}`,
-    '$limit': '15',
-  }) as any[]
-  return rows.map(r => ({
-    nit: nitSinDv(String(r.nit ?? ''), r.tipo_empresa),
-    nombre: String(r.nombre ?? '').trim(),
-    tipo: r.tipo_empresa,
-    ubicacion: [r.municipio, r.departamento].filter((x: string) => x && !/no provisto/i.test(x)).join(', ') || undefined,
+  const locales = buscarProveedoresLocal(toks)
+  if (!locales) throw new Error('la copia local del registro de proveedores aún se está descargando')
+  return locales.map(r => ({
+    nit: nitSinDv(r.nit, r.tipo),
+    nombre: r.nombre,
+    tipo: r.tipo || undefined,
+    ubicacion: r.ubicacion || undefined,
     fuentes: ['secop'] as FuenteBusqueda[],
   }))
 }
@@ -137,7 +134,7 @@ export async function buscarPorNombre(q: string): Promise<ResultadoBusqueda> {
 
   const settled = await Promise.allSettled([
     Promise.resolve().then(() => buscarEnScores(toks)),
-    conTimeout(buscarEnSecop(toks)),
+    buscarEnSecop(toks),
     conTimeout(buscarEnSanciones(query)),
   ])
 

@@ -6,8 +6,6 @@ const log = createLogger('socrata')
 const BASES: Record<string, string> = {
   contratos: 'https://www.datos.gov.co/resource/jbjy-vk9h.json',
   archivos: 'https://www.datos.gov.co/resource/dmgg-8hin.json',
-  // Registro de proveedores SECOP II: responde por nombre en ~1s (el dataset de contratos tarda ~45s)
-  proveedores: 'https://www.datos.gov.co/resource/qmzu-gj57.json',
 }
 
 interface CacheEntry {

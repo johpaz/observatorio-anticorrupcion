@@ -116,7 +116,7 @@ export default function ContratistasPage() {
           </h3>
           {busqueda.fuentes_fallidas.length > 0 && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-semibold">
-              No respondieron: {busqueda.fuentes_fallidas.map(f => ({ score: 'contratistas analizados', secop: 'SECOP II', sanciones: 'sanciones' }[f] ?? f)).join(', ')}. Los resultados pueden estar incompletos.
+              No respondieron: {busqueda.fuentes_fallidas.map(f => ({ score: 'contratistas analizados', secop: 'registro de proveedores SECOP II (se está descargando)', sanciones: 'sanciones' }[f] ?? f)).join(', ')}. Los resultados pueden estar incompletos.
             </p>
           )}
           {busqueda.candidatos.length === 0 ? (

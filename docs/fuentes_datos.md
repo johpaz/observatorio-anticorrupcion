@@ -14,6 +14,13 @@ La aplicación selecciona únicamente los campos necesarios y formula consultas 
 
 Enlace: https://www.datos.gov.co/Gastos-Gubernamentales/SECOP-II-Contratos-Electr-nicos/jbjy-vk9h
 
+## Registro de proveedores SECOP II (búsqueda por nombre)
+
+- Dataset `qmzu-gj57` de datos.gov.co, actualización diaria en origen (~1,6 millones de proveedores). https://www.datos.gov.co/d/qmzu-gj57
+- Se guarda completo en SQLite con búsqueda de texto completo (FTS5), en `proveedores.db` junto a la base principal (mismo volumen, ~190 MB). La búsqueda por nombre **no consulta datos.gov.co**: responde en milisegundos desde esta copia.
+- La API la descarga sola unos 20 s después de arrancar si no existe o tiene más de `PROVEEDORES_REFRESH_DAYS` días (7 por defecto); tarda ~1 minuto. Se construye en un archivo temporal y se reemplaza de forma atómica; una descarga fallida o truncada conserva la copia anterior. Durante esa primera descarga la búsqueda sigue respondiendo con scores y sanciones, y avisa que el registro de proveedores aún se está descargando.
+- La búsqueda es por palabras en cualquier orden, sin importar mayúsculas ni tildes, y acepta prefijos ("dieg canc").
+
 ## Responsabilidades fiscales — CGR
 
 - Origen de la carga inicial: portal PACO (Presidencia), https://portal.paco.gov.co/index.php?pagina=descargarDatos — `responsabilidades_fiscales.csv` (publicado en junio de 2022).
