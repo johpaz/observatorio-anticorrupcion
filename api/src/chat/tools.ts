@@ -50,6 +50,36 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
   {
     type: 'function',
     function: {
+      name: 'contratos_de_contratista',
+      description: 'Lista los contratos concretos de un contratista ya analizado (entidad, valor, fechas, estado, días adicionados, facturación), con la razón de cada bandera. Úsala para sustentar un hallazgo con casos reales. Datos de la base local; si el NIT no fue analizado, lo indica.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nit: { type: 'string', description: 'NIT del contratista' },
+          filtro: { type: 'string', enum: ['todos', 'vencidos', 'adiciones', 'baja_ejecucion'], description: 'Opcional: solo contratos vencidos sin cerrar, con días adicionados o con baja ejecución' },
+          limite: { type: 'number', description: 'Máximo de contratos a devolver (por defecto 10, máximo 20)' },
+        },
+        required: ['nit'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'comparar_contratistas',
+      description: 'Compara de 2 a 5 contratistas por NIT en una sola llamada: score, nivel, banderas, sector y resumen de sanciones. Úsala en vez de pedir score y sanciones uno por uno.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nits: { type: 'array', items: { type: 'string' }, description: 'NITs a comparar (2 a 5)' },
+        },
+        required: ['nits'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'alertas_sector',
       description: 'Lista los contratistas de mayor riesgo en un sector. Acepta nombres aproximados ("defensa", "deporte"); si no existe, devuelve la lista de sectores válidos. Si devuelve una lista vacía, el sector existe pero no tiene contratistas con ese nivel: dilo así.',
       parameters: {
@@ -130,6 +160,66 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
       const row = db.query(`SELECT * FROM scores WHERE nit = ?`).get(args.nit) as any
       if (!row) return { error: `NIT ${args.nit} no encontrado en la base de datos` }
       return { ...row, flags: JSON.parse(row.flags) }
+    }
+
+    if (name === 'contratos_de_contratista') {
+      const nit = String(args.nit ?? '').trim()
+      const limite = Math.min(Math.max(Number(args.limite ?? 10) || 10, 1), 20)
+      const filtro = String(args.filtro ?? 'todos')
+      const filas = db.query(`SELECT contrato_id, entidad, valor, fecha_inicio, fecha_fin, estado, raw_json FROM contratos_cache WHERE nit = ? ORDER BY fecha_fin DESC`).all(nit) as any[]
+      if (filas.length === 0) return { error: `No hay contratos de ${nit} en la base local: el contratista no ha sido analizado todavía.` }
+      const seisMeses = Date.now() - 183 * 86_400_000
+      const contratos = filas.map(r => {
+        let raw: any = {}
+        try { raw = JSON.parse(r.raw_json) } catch {}
+        const valor = Number(raw.valor_del_contrato ?? r.valor ?? 0)
+        const facturado = Number(raw.valor_facturado ?? 0)
+        const dias = Number(raw.dias_adicionados ?? 0) || 0
+        const estado = String(r.estado ?? '').toLowerCase()
+        const estadoRaw = String(raw.estado_contrato ?? '').toLowerCase()
+        const fin = r.fecha_fin ? Date.parse(r.fecha_fin) : NaN
+        const razones: string[] = []
+        if (!Number.isNaN(fin) && fin < seisMeses && (estado.includes('ejecuci') || estado.includes('prorrogado'))) razones.push('VENCIDO_SIN_CERRAR')
+        if (dias > 0) razones.push(`ADICION_${dias}_DIAS`)
+        if (valor > 5_000_000 && facturado / valor < 0.5 && (estadoRaw.includes('terminado') || estadoRaw.includes('cancelado'))) razones.push('BAJA_EJECUCION')
+        return {
+          contrato: r.contrato_id, entidad: r.entidad, valor, fecha_inicio: r.fecha_inicio, fecha_fin: r.fecha_fin, estado: r.estado,
+          dias_adicionados: dias, valor_facturado: facturado, objeto: String(raw.objeto_del_contrato ?? '').slice(0, 160), razones,
+        }
+      })
+      const sel = contratos.filter(c =>
+        filtro === 'vencidos' ? c.razones.includes('VENCIDO_SIN_CERRAR')
+        : filtro === 'adiciones' ? c.dias_adicionados > 0
+        : filtro === 'baja_ejecucion' ? c.razones.includes('BAJA_EJECUCION')
+        : true)
+      return {
+        nit,
+        contratos_en_base: contratos.length,
+        con_razon_de_bandera: contratos.filter(c => c.razones.length > 0).length,
+        coinciden_con_filtro: sel.length,
+        valor_total_coinciden: sel.reduce((a, c) => a + c.valor, 0),
+        mostrando: Math.min(sel.length, limite),
+        contratos: sel.slice(0, limite),
+        nota: 'La base local guarda hasta 500 contratos por contratista; las banderas del score pueden contar más.',
+      }
+    }
+
+    if (name === 'comparar_contratistas') {
+      const nits = [...new Set((Array.isArray(args.nits) ? args.nits : []).map((n: any) => String(n).trim()).filter(Boolean))]
+      if (nits.length < 2 || nits.length > 5) return { error: 'Indica entre 2 y 5 NITs distintos' }
+      const comparados = await Promise.all(nits.map(async nit => {
+        const row = db.query(`SELECT nombre, score_total, nivel_riesgo, sector, flags FROM scores WHERE nit = ?`).get(nit) as any
+        const sanciones = await executeTool('verificar_sanciones', { nit })
+        return {
+          nit,
+          ...(row
+            ? { nombre: row.nombre, score_total: row.score_total, nivel_riesgo: row.nivel_riesgo, sector: row.sector, flags: JSON.parse(row.flags) }
+            : { score: 'sin score: no ha sido analizado (no significa que esté libre de alertas)' }),
+          sanciones: sanciones.error ? { error: sanciones.error } : { resumen: sanciones.resumen, multas: sanciones.multas?.length ?? 0 },
+        }
+      }))
+      const ordenados = comparados.filter((c: any) => typeof c.score_total === 'number').sort((a: any, b: any) => b.score_total - a.score_total)
+      return { comparados, mayor_score: ordenados[0]?.nit ?? null }
     }
 
     if (name === 'alertas_sector') {

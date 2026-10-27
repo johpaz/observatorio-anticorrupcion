@@ -46,6 +46,8 @@ describe('herramientas del agente', () => {
     expect(FUNCTION_DECLARATIONS.map(t => t.function.name)).toEqual([
       'buscar_contratista',
       'obtener_score_riesgo',
+      'contratos_de_contratista',
+      'comparar_contratistas',
       'alertas_sector',
       'buscar_por_bandera',
       'verificar_sanciones',
@@ -156,5 +158,43 @@ describe('sectores aproximados', () => {
     const r: any = await executeTool('alertas_sector', { sector: 'Astronomía' })
     expect(r.error).toContain('no existe')
     expect(r.sectores_validos).toContain('deportes')
+  })
+})
+
+describe('contratos_de_contratista y comparar_contratistas', () => {
+  const hace = (dias: number) => new Date(Date.now() - dias * 86_400_000).toISOString()
+  const contrato = (id: string, nit: string, estado: string, finDias: number, raw: Record<string, unknown>) =>
+    db.prepare(`INSERT OR REPLACE INTO contratos_cache (nit, contrato_id, entidad, valor, fecha_inicio, fecha_fin, estado, sector, raw_json) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(nit, id, 'ENTIDAD X', Number(raw.valor_del_contrato ?? 0), hace(finDias + 100), hace(finDias), estado, 'deportes', JSON.stringify(raw))
+
+  test('devuelve contratos con la razón de cada bandera y filtra', async () => {
+    contrato('C1', '888', 'En ejecución', 400, { valor_del_contrato: 1e7, dias_adicionados: 0 })
+    contrato('C2', '888', 'Terminado', 10, { valor_del_contrato: 2e7, valor_facturado: 1e6, estado_contrato: 'Terminado', dias_adicionados: 30 })
+    contrato('C3', '888', 'Liquidado', 500, { valor_del_contrato: 1e6 })
+    const todos: any = await executeTool('contratos_de_contratista', { nit: '888' })
+    expect(todos.contratos_en_base).toBe(3)
+    expect(todos.con_razon_de_bandera).toBe(2)
+    const c1 = todos.contratos.find((c: any) => c.contrato === 'C1')
+    expect(c1.razones).toEqual(['VENCIDO_SIN_CERRAR'])
+    const c2 = todos.contratos.find((c: any) => c.contrato === 'C2')
+    expect(c2.razones).toEqual(['ADICION_30_DIAS', 'BAJA_EJECUCION'])
+    const v: any = await executeTool('contratos_de_contratista', { nit: '888', filtro: 'vencidos' })
+    expect(v.contratos.map((c: any) => c.contrato)).toEqual(['C1'])
+    expect(v.valor_total_coinciden).toBe(1e7)
+  })
+
+  test('un NIT sin contratos en la base lo dice, no devuelve vacío', async () => {
+    const r: any = await executeTool('contratos_de_contratista', { nit: '000' })
+    expect(r.error).toContain('no ha sido analizado')
+  })
+
+  test('compara en una llamada y distingue "sin score" de "sin alertas"', async () => {
+    db.prepare(`INSERT OR REPLACE INTO scores (nit, nombre, score_total, nivel_riesgo, flags, sector) VALUES (?,?,?,?,?,?)`)
+      .run('901', 'A SAS', 120, 'ROJO', '["VENCIDOS_SIN_CERRAR(5/9)"]', 'deportes')
+    const r: any = await executeTool('comparar_contratistas', { nits: ['901', '902'] })
+    expect(r.mayor_score).toBe('901')
+    expect(r.comparados[0].nivel_riesgo).toBe('ROJO')
+    expect(r.comparados[1].score).toContain('no significa que esté libre')
+    expect((await executeTool('comparar_contratistas', { nits: ['901'] })).error).toContain('entre 2 y 5')
   })
 })
