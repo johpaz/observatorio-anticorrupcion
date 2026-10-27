@@ -2,6 +2,7 @@ import { db } from '../db/client'
 import { getSectores } from '../routes/alertas'
 import { hasSanctionFlag, scoreSectorBatch } from './scorer'
 import { socrataQuery } from './socrata'
+import { agregadosLocales, metadataLocal } from './cubo-contratos'
 
 const QUARTER_RANGES: Record<string, [number, number]> = {
   '1': [1, 3], '2': [4, 6], '3': [7, 9], '4': [10, 12],
@@ -64,6 +65,8 @@ function archivosWhere(params: ArchivosFilters): string {
 }
 
 export async function loadContratosMetadata() {
+  const local = metadataLocal()
+  if (local) return local
   const [years, departamentos, sectores, tipos, estados] = await Promise.all([
     socrataQuery('contratos', {
       '$select': 'date_extract_y(fecha_de_firma) as year', '$group': 'year',
@@ -97,6 +100,9 @@ export async function loadContratosMetadata() {
 }
 
 export async function loadContratosDashboard(filters: ContratosFilters = {}) {
+  // Con el cubo local los agregados salen de SQLite; la tabla de contratos se pide aparte (/api/contratos/list)
+  const local = agregadosLocales(filters)
+  if (local) return { ...local, list: [] as unknown[] }
   const where = contratosWhere(filters)
   const page = Math.max(Number(filters.page ?? 1), 1)
   const limit = Math.min(Math.max(Number(filters.limit ?? 20), 1), 100)

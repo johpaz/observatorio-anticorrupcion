@@ -89,6 +89,8 @@ SECOP II se consulta desde la fuente y emplea caché con TTL.
 
 **SIRI, multas SECOP y sanciones SIC** se actualizan desde datos.gov.co cada `REFRESH_INTERVAL_DAYS` días (7 por defecto). La API de sanciones revisa cada hora si toca, y el estado persiste en la tabla `fuentes_meta` (fecha, filas en origen, filas nuevas y error por fuente), visible en `GET /stats`. Cada fuente se actualiza por separado: si una falla, o devuelve menos filas de las esperadas, se conserva la carga anterior. Para forzarla: `POST /admin/refresh` con `Authorization: Bearer $ADMIN_TOKEN`; sin `ADMIN_TOKEN` el endpoint responde 503. `REFRESH_ENABLED=0` desactiva la tarea.
 
+**Pestaña Contratos (agregados de SECOP II):** la API precalcula en segundo plano las vistas más usadas (sin filtros, cada uno de los últimos `CONTRATOS_PRECALCULO_YEARS`=5 años y cada sector, hasta `CONTRATOS_PRECALCULO_SECTORES`=30) y las guarda en SQLite (`dashboard_cache`). Empieza ~1 minuto después de arrancar, revisa cada 6 h y solo recalcula lo que tenga más de `DASHBOARD_CACHE_TTL` segundos (86400 = 1 día); consulta de a una con pausa para no saturar datos.gov.co, y si falla conserva la copia anterior. Las combinaciones de filtros fuera de esa lista se calculan en la primera consulta y se guardan. `CONTRATOS_PRECALCULO=0` lo desactiva.
+
 Los scores de la API principal se recalculan con los datos nuevos al vencer su caché (1 hora).
 
 **Responsabilidades fiscales, sanciones penales y obras** siguen cargándose desde los CSV de PACO solo si la tabla está vacía. PACO no los actualiza desde 2021-2022, por lo que un contratista sin registros en estas tres bases no implica que no los tenga hoy.

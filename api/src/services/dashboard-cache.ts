@@ -2,7 +2,7 @@ import { db } from '../db/client'
 import { createLogger } from '../utils/logger'
 
 const log = createLogger('dashboard-cache')
-const TTL_SEC = Number(Bun.env.DASHBOARD_CACHE_TTL ?? 900)
+const TTL_SEC = Number(Bun.env.DASHBOARD_CACHE_TTL ?? 86400)
 const inFlight = new Map<string, Promise<unknown>>()
 
 export type CacheStatus = 'fresh' | 'stale'

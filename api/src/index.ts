@@ -11,6 +11,7 @@ import { initDb } from './db/client'
 import { startChannels } from './channels'
 import { createLogger } from './utils/logger'
 import { startProveedoresScheduler } from './services/proveedores'
+import { startPrecalculoContratos } from './services/precalculo-contratos'
 
 const log = createLogger('api')
 
@@ -57,4 +58,5 @@ if (Bun.env.ALERTAS_WARMUP !== '0') {
   setTimeout(() => { warmupAlertas() }, 3_000)
   setTimeout(() => { warmupDashboard() }, 3_000)
   startProveedoresScheduler()
+  startPrecalculoContratos()
 }
