@@ -1,4 +1,5 @@
-import { callLLM, type LLMMessage, type LLMResponse, type LLMToolCall } from '@johpaz/hive-sdk'
+import type { LLMMessage, LLMToolCall } from '@johpaz/hive-sdk'
+import { llamarCompleto } from './llm'
 import { FUNCTION_DECLARATIONS, executeTool } from './tools'
 import { loadChatHistory, saveChatMessage } from '../db/client'
 
@@ -7,7 +8,7 @@ const GEMINI_MODEL = Bun.env.GEMINI_MODEL ?? 'gemini-3-flash-preview'
 
 export const WORKER_PROMPT = `Eres un analista experto en contratación pública colombiana (SECOP II) y riesgo anticorrupción.
 Tu trabajo es ejecutar la tarea que te asigne el coordinador.
-Usa las herramientas disponibles siempre que necesites datos reales. No tienes acceso a internet: si algo no está en las fuentes oficiales internas, indícalo y no lo inventes.
+Usa las herramientas disponibles siempre que necesites datos reales. Para listar contratistas por bandera de riesgo usa buscar_por_bandera en una sola llamada; para un sector, alertas_sector. Entrega siempre la lista concreta (NIT, nombre, score) y no te limites a describir las fuentes. No tienes acceso a internet: si algo no está en las fuentes oficiales internas, indícalo y no lo inventes.
 Si solo tienes un nombre o razón social, búscalo con buscar_contratista y confirma el NIT; coincidir por nombre no prueba que sea la misma persona.
 Responde en español, con fuentes citadas.
 Si la tarea requiere múltiples pasos, muéstralos claramente.
@@ -17,6 +18,7 @@ Cita siempre la fuente: SECOP II (datos.gov.co), Procuraduría (SIRI), CGR, SECO
 
 export const REVIEWER_PROMPT = `Eres un revisor crítico y exigente de un equipo de análisis anticorrupción.
 Evalúa si el siguiente trabajo cumple EXACTAMENTE al 100% con la tarea solicitada.
+Si las herramientas devolvieron cero resultados, una respuesta que lo declara con claridad, indica el alcance de la búsqueda y no inventa datos está COMPLETA: apruébala; no exijas listas que las fuentes no contienen.
 Verifica que las afirmaciones estén respaldadas por las herramientas adecuadas. Para datos cubiertos por SECOP y los registros internos de sanciones, exige esas fuentes oficiales internas como base. El equipo no tiene acceso a internet: no exijas ni aceptes afirmaciones que no provengan de las herramientas.
 Responde ÚNICAMENTE con un JSON válido y nada más:
 {
@@ -101,14 +103,14 @@ async function runWorkerLoop(
   let workerReasoning = ''
 
   for (let turn = 0; turn < 5; turn++) {
-    const response = await callLLM({
+    const response = await llamarCompleto({
       provider: 'gemini',
       model: GEMINI_MODEL,
       apiKey: GEMINI_API_KEY!,
       messages,
       tools: FUNCTION_DECLARATIONS,
       temperature: 0.2,
-      maxTokens: 2048,
+      maxTokens: 8192,
       signal: AbortSignal.timeout(60_000),
     })
 
@@ -206,7 +208,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
 
     // Reviewer
     await callbacks.onReviewStart?.()
-    const reviewResponse = await callLLM({
+    const reviewResponse = await llamarCompleto({
       provider: 'gemini',
       model: GEMINI_MODEL,
       apiKey: GEMINI_API_KEY,
@@ -215,7 +217,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
         { role: 'user', content: `TAREA:\n${options.message}\n\nTRABAJO ENTREGADO (iteración ${iteration}):\n${lastWorkerResult}` },
       ],
       temperature: 0.1,
-      maxTokens: 2048,
+      maxTokens: 4096,
       signal: AbortSignal.timeout(60_000),
     })
 
@@ -235,7 +237,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
 
   // Coordinator final response
   await callbacks.onCoordinatorStart?.()
-  const coordinatorResponse = await callLLM({
+  const coordinatorResponse = await llamarCompleto({
     provider: 'gemini',
     model: GEMINI_MODEL,
     apiKey: GEMINI_API_KEY,
@@ -244,7 +246,7 @@ export async function runCollaborativeTask(options: CollaborativeOptions): Promi
       { role: 'user', content: `TAREA ORIGINAL DEL USUARIO:\n${options.message}\n\nTRABAJO APROBADO POR EL REVISOR:\n${lastWorkerResult}\n\n${!review.approved ? 'Nota: se alcanzó el máximo de iteraciones sin aprobación completa.' : ''}` },
     ],
     temperature: 0.2,
-    maxTokens: 2048,
+    maxTokens: 8192,
     signal: AbortSignal.timeout(60_000),
   })
 

@@ -147,7 +147,7 @@ describe('GET /persona/:documento — coincidencia exacta de documentos', () => 
   })
 
   test('documentos placeholder no coinciden con nada', async () => {
-    for (const doc of ['0000000', '1111111', '123']) {
+    for (const doc of ['0000000', '1111111', '123', '123456789']) {
       const { body } = await get(`/persona/${doc}`)
       expect(body.resumen.total_registros).toBe(0)
     }
@@ -187,5 +187,27 @@ describe('instalación nueva: siembra con filas repetidas y migración', () => {
     expect(() => migrateRefreshColumns()).not.toThrow()
     expect((db.query(`SELECT COUNT(*) c FROM disciplinarios WHERE documento = '555111222'`).get() as any).c).toBe(1)
     expect((db.query(`SELECT COUNT(*) c FROM multas_secop WHERE cedula_responsable = '555111222'`).get() as any).c).toBe(1)
+  })
+})
+
+describe('GET /documentos/:fuente', () => {
+  test('devuelve un renglón por documento válido, con conteo y nombre', async () => {
+    const { documentosRoutes } = await import('../src/routes/documentos')
+    const app2 = new Elysia().use(documentosRoutes)
+    const res = await app2.handle(new Request('http://local/documentos/disciplinarios'))
+    const body: any = await res.json()
+    const juan = body.documentos.find((d: any) => d.documento === '79861465')
+    expect(juan).toMatchObject({ nombre: 'JUAN GOMEZ', registros: 1 })
+    expect(body.documentos.every((d: any) => d.documento.length >= 5)).toBe(true)
+    expect(body.total).toBe(body.documentos.length)
+  })
+
+  test('descarta documentos placeholder y rechaza fuentes desconocidas', async () => {
+    const { documentosRoutes } = await import('../src/routes/documentos')
+    const app2 = new Elysia().use(documentosRoutes)
+    const multas: any = await (await app2.handle(new Request('http://local/documentos/multas'))).json()
+    expect(multas.documentos.some((d: any) => d.documento === '0000000')).toBe(false)
+    const res = await app2.handle(new Request('http://local/documentos/inexistente'))
+    expect(res.status).toBe(404)
   })
 })

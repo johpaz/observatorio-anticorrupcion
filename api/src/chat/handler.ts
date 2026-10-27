@@ -1,4 +1,5 @@
-import { callLLM, type LLMMessage, type LLMToolCall } from '@johpaz/hive-sdk'
+import type { LLMMessage } from '@johpaz/hive-sdk'
+import { llamarCompleto } from './llm'
 import { FUNCTION_DECLARATIONS, executeTool } from './tools'
 import { loadChatHistory, saveChatMessage } from '../db/client'
 import { runCollaborativeTask, type CollaborativeCallbacks, type CollaborativeResult } from './collaborative'
@@ -10,7 +11,7 @@ const GEMINI_MODEL = Bun.env.GEMINI_MODEL ?? 'gemini-3-flash-preview'
 export const SYSTEM_PROMPT = `Eres un asistente experto en transparencia y contratación pública colombiana (SECOP II).
 Tienes acceso a herramientas internas para consultar riesgo anticorrupción y sanciones. No tienes acceso a internet: si algo no está en esas fuentes oficiales, dilo y no lo inventes.
 Responde siempre en español, de forma clara y profesional.
-Si te preguntan por un contratista específico, usa las herramientas para obtener datos reales. Si solo te dan un nombre o razón social, búscalo con buscar_contratista y confirma el NIT; coincidir por nombre no prueba que sea la misma persona.
+Para preguntas del tipo "¿qué contratistas tienen la bandera X?" usa buscar_por_bandera; para un sector concreto, alertas_sector. Si te preguntan por un contratista específico, usa las herramientas para obtener datos reales. Si solo te dan un nombre o razón social, búscalo con buscar_contratista y confirma el NIT; coincidir por nombre no prueba que sea la misma persona.
 Cuando el contratista tenga multas SECOP, indica para cada una: el valor, la entidad que impuso la multa, la resolución, el contrato asociado y la fecha.
 Importante: los scores de riesgo son indicativos basados en patrones estadísticos. No constituyen prueba de corrupción.
 Cita siempre la fuente: SECOP II (datos.gov.co), Procuraduría (SIRI), CGR, SECOP Multas según corresponda.`
@@ -99,14 +100,14 @@ async function handleChatMessageUnlocked(options: ChatHandlerOptions & { thread_
   let finalReasoning = ''
 
   for (let turn = 0; turn < 5; turn++) {
-    const response = await callLLM({
+    const response = await llamarCompleto({
       provider: 'gemini',
       model: GEMINI_MODEL,
       apiKey: GEMINI_API_KEY,
       messages,
       tools: FUNCTION_DECLARATIONS,
       temperature: 0.2,
-      maxTokens: 1024,
+      maxTokens: 4096,
       signal: AbortSignal.timeout(60_000),
     })
 

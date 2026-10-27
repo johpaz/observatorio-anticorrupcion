@@ -12,6 +12,7 @@ import { multasRoutes } from "./routes/multas";
 import { obrasRoutes } from "./routes/obras";
 import { searchRoutes } from "./routes/search";
 import { adminRoutes } from "./routes/admin";
+import { documentosRoutes } from "./routes/documentos";
 import { startRefreshScheduler } from "./services/refresh";
 
 createSchema();
@@ -57,6 +58,7 @@ const app = new Elysia()
       obras:           "GET /obras",
       search:          "GET /search?q=<termino>",
       persona:         "GET /persona/:documento",
+      documentos:      "GET /documentos/:fuente (disciplinarios|fiscales|multas)",
       stats:           "GET /stats",
       stats_deptos:    "GET /stats/departamentos",
       stats_sanciones: "GET /stats/tipos-sancion",
@@ -70,6 +72,7 @@ const app = new Elysia()
   .use(obrasRoutes)
   .use(searchRoutes)
   .use(adminRoutes)
+  .use(documentosRoutes)
   .listen(Number(Bun.env.PORT ?? 3000));
 
 startRefreshScheduler();

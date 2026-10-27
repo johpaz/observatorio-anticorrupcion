@@ -1,8 +1,22 @@
 import { db } from '../db/client'
 import { buscarPorNombre, esNombre } from '../services/buscador'
+import { contratistasConSancion, type FuenteSancion } from '../services/cruce'
 import type { LLMToolDef } from '@johpaz/hive-sdk'
 
 const PROCURADURIA_URL = Bun.env.PROCURADURIA_URL ?? 'http://localhost:3000'
+
+/** Banderas de sanciones: se responden cruzando la fuente completa con el registro de proveedores. */
+const FUENTE_DE_BANDERA: Record<string, FuenteSancion> = {
+  SANCIONADO_DISCIPLINARIO: 'disciplinarios',
+  RESPONSABILIDAD_FISCAL: 'fiscales',
+  MULTA_SECOP: 'multas',
+}
+
+/** Banderas que puede tener un score (ver docs/diccionario_datos.md). */
+export const BANDERAS = [
+  'VENCIDOS_SIN_CERRAR', 'EXTENSION_MAYOR_1_ANO', 'MULTIPLES_ADICIONES', 'CONCENTRACION_ENTIDADES',
+  'BAJA_EJECUCION', 'SANCIONADO_DISCIPLINARIO', 'RESPONSABILIDAD_FISCAL', 'MULTA_SECOP', 'ANOMALIA_ESTADISTICA',
+] as const
 
 export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
   {
@@ -45,6 +59,22 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
           nivel: { type: 'string', description: 'Nivel de riesgo a filtrar: ROJO, AMARILLO o VERDE' },
         },
         required: ['sector'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'buscar_por_bandera',
+      description: 'Lista los contratistas que tienen una bandera de riesgo concreta, sin recorrer sector por sector. Para SANCIONADO_DISCIPLINARIO, RESPONSABILIDAD_FISCAL y MULTA_SECOP cruza la fuente oficial completa (SIRI, CGR, multas SECOP) con todos los proveedores registrados en SECOP II y devuelve el total real. Para las demás banderas lista los contratistas ya analizados. Úsala para preguntas como "¿qué contratistas tienen la bandera X?" y entrega la lista que devuelva; para el detalle de uno, usa verificar_sanciones u obtener_score_riesgo con su NIT.',
+      parameters: {
+        type: 'object',
+        properties: {
+          bandera: { type: 'string', description: `Código de la bandera. Valores válidos: ${BANDERAS.join(', ')}` },
+          sector: { type: 'string', description: 'Opcional: limitar a un sector SECOP II' },
+          limite: { type: 'number', description: 'Cuántos devolver (por defecto 15, máximo 30)' },
+        },
+        required: ['bandera'],
       },
     },
   },
@@ -96,6 +126,55 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
          WHERE ${where} ORDER BY score_total DESC LIMIT ?`
       ).all(...params) as any[]
       return rows.map(r => ({ ...r, flags: JSON.parse(r.flags) }))
+    }
+
+    if (name === 'buscar_por_bandera') {
+      const bandera = String(args.bandera ?? '').trim().toUpperCase()
+      if (!(BANDERAS as readonly string[]).includes(bandera)) {
+        return { error: `Bandera "${args.bandera}" no válida`, banderas_validas: BANDERAS }
+      }
+      const limite = Math.min(Math.max(Number(args.limite ?? 15) || 15, 1), 30)
+
+      const fuente = FUENTE_DE_BANDERA[bandera]
+      if (fuente) {
+        const lista = await contratistasConSancion(fuente)
+        const pagina = lista.slice(0, limite)
+        const conScore = new Map(
+          (db.query(`SELECT nit, score_total, nivel_riesgo FROM scores WHERE nit IN (${pagina.map(() => '?').join(',') || "''"})`)
+            .all(...pagina.map(c => c.nit)) as any[]).map(r => [r.nit, r]),
+        )
+        return {
+          bandera,
+          total_contratistas_con_la_bandera: lista.length,
+          mostrando: pagina.length,
+          contratistas: pagina.map(c => ({ ...c, ...(conScore.get(c.nit) ? { score_total: conScore.get(c.nit).score_total, nivel_riesgo: conScore.get(c.nit).nivel_riesgo } : {}) })),
+          nota: 'Proveedores registrados en SECOP II cuyo documento figura en la fuente de sanciones (coincidencia exacta de documento). No implica que tengan contratos vigentes; verifica el detalle con verificar_sanciones.',
+          ...(args.sector ? { aviso: 'El filtro por sector no aplica a las banderas de sanciones y se ignoró.' } : {}),
+        }
+      }
+
+      // Las banderas con parámetro se guardan como CODIGO(n/total); las simples, como CODIGO
+      const patrones = [`%"${bandera}"%`, `%"${bandera}(%`]
+      const sector = args.sector ? String(args.sector) : null
+      const where = `(flags LIKE ? OR flags LIKE ?)${sector ? ' AND sector = ?' : ''}`
+      const params: any[] = sector ? [...patrones, sector] : patrones
+
+      const total = (db.query(`SELECT COUNT(*) c FROM scores WHERE ${where}`).get(...params) as { c: number }).c
+      const rows = db.query(
+        `SELECT nit, nombre, score_total, nivel_riesgo, sector, flags FROM scores
+         WHERE ${where} ORDER BY score_total DESC LIMIT ?`
+      ).all(...params, limite) as any[]
+      const analizados = (db.query(`SELECT COUNT(*) c FROM scores`).get() as { c: number }).c
+
+      return {
+        bandera,
+        sector: sector ?? 'todos',
+        total_con_bandera: total,
+        mostrando: rows.length,
+        total_contratistas_analizados: analizados,
+        contratistas: rows.map(r => ({ ...r, flags: JSON.parse(r.flags) })),
+        nota: 'Solo incluye contratistas ya analizados por el observatorio, no todo SECOP II.',
+      }
     }
 
     if (name === 'verificar_sanciones') {

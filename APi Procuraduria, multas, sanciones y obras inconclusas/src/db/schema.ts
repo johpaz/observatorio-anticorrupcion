@@ -130,8 +130,8 @@ export function migrateRefreshColumns() {
   db.run(`DROP INDEX IF EXISTS idx_multas_clave`);
 
   // Backfill de la clave en filas cargadas desde CSV y eliminación de duplicados exactos
-  db.run(`UPDATE disciplinarios SET clave = trim(id_sancion) || '|' || trim(documento) || '|' || trim(tipo_sancion_aplicada) || '|' || trim(fecha_sancion) WHERE clave IS NULL`);
-  db.run(`UPDATE multas_secop SET clave = trim(ref_contrato) || '|' || trim(resolucion) || '|' || trim(cedula_responsable) WHERE clave IS NULL`);
+  db.run(`UPDATE disciplinarios SET clave = COALESCE(trim(id_sancion),'') || '|' || COALESCE(trim(documento),'') || '|' || COALESCE(trim(tipo_sancion_aplicada),'') || '|' || COALESCE(trim(fecha_sancion),'') WHERE clave IS NULL`);
+  db.run(`UPDATE multas_secop SET clave = COALESCE(trim(ref_contrato),'') || '|' || COALESCE(trim(resolucion),'') || '|' || COALESCE(trim(cedula_responsable),'') WHERE clave IS NULL`);
   db.run(`DELETE FROM disciplinarios WHERE id NOT IN (SELECT MIN(id) FROM disciplinarios GROUP BY clave)`);
   db.run(`DELETE FROM multas_secop WHERE id NOT IN (SELECT MIN(id) FROM multas_secop GROUP BY clave)`);
   // Los CSV de PACO traen filas idénticas repetidas (en obras, cada una ~10 veces).

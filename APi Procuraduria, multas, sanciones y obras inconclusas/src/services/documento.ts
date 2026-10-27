@@ -9,7 +9,7 @@
  *  - igualdad exacta tras quitar puntos, guiones y espacios;
  *  - un NIT de empresa (9 dígitos, empieza en 8 o 9) también coincide con su versión de
  *    10 dígitos con dígito de verificación, y viceversa: las fuentes lo guardan de ambas formas;
- *  - documentos placeholder (cortos o de un solo dígito repetido) no coinciden con nada.
+ *  - documentos placeholder (cortos, de un solo dígito repetido o secuenciales como 123456789) no coinciden con nada.
  */
 
 /** Quita puntos, guiones, espacios y pasa a mayúsculas. */
@@ -21,6 +21,7 @@ export function esDocumentoValido(doc: string): boolean {
   const d = normalizarDocumento(doc);
   if (d.length < 5) return false;
   if (/^(.)\1+$/.test(d)) return false; // 0000000, 1111111...
+  if (/^(0?123456789|1234567890|12345678|987654321)$/.test(d)) return false; // números de relleno secuenciales
   return true;
 }
 

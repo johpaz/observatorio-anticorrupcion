@@ -73,6 +73,13 @@ export function buscarProveedoresLocal(tokens: string[], limite = 15): Proveedor
   }
 }
 
+/** Recorre todo el registro (~1,6 M de filas) sin cargarlo en memoria. null = aún no hay copia local. */
+export function recorrerProveedores(): IterableIterator<ProveedorLocal> | null {
+  const db = lector()
+  if (!db) return null
+  return db.query<ProveedorLocal, []>(`SELECT nit, nombre, tipo, ubicacion FROM proveedores`).iterate()
+}
+
 export function estadoProveedores(): { disponible: boolean; filas?: number; actualizado_at?: string } {
   const db = lector()
   if (!db) return { disponible: false }
