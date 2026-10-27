@@ -51,7 +51,7 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
     type: 'function',
     function: {
       name: 'alertas_sector',
-      description: 'Lista los contratistas de mayor riesgo en un sector de contratación pública colombiana.',
+      description: 'Lista los contratistas de mayor riesgo en un sector. Acepta nombres aproximados ("defensa", "deporte"); si no existe, devuelve la lista de sectores válidos. Si devuelve una lista vacía, el sector existe pero no tiene contratistas con ese nivel: dilo así.',
       parameters: {
         type: 'object',
         properties: {
@@ -94,6 +94,21 @@ export const FUNCTION_DECLARATIONS: LLMToolDef[] = [
   },
 ]
 
+const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+/** Resuelve el sector que escribió el modelo ("Defensa y Seguridad", "deporte") al nombre exacto guardado. */
+export function resolverSector(entrada: string): { sector: string } | { error: string; sectores_validos: string[] } {
+  const validos = (db.query(`SELECT DISTINCT sector FROM scores WHERE sector IS NOT NULL AND sector != '' ORDER BY sector`).all() as { sector: string }[]).map(r => r.sector)
+  const q = sinTildes(entrada)
+  const norm = validos.map(v => [v, sinTildes(v)] as const)
+  const hit =
+    norm.find(([, n]) => n === q) ??
+    norm.find(([, n]) => q && (n.includes(q) || q.includes(n))) ??
+    // plural/singular: "deportes" ↔ "deporte"
+    norm.find(([, n]) => q.length >= 4 && (n.includes(q.replace(/e?s$/, '')) || q.includes(n.replace(/e?s$/, ''))))
+  return hit ? { sector: hit[0] } : { error: `Sector "${entrada}" no existe en el observatorio`, sectores_validos: validos }
+}
+
 export async function executeTool(name: string, args: Record<string, any>): Promise<any> {
   try {
     if (name === 'buscar_contratista') {
@@ -118,7 +133,10 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
     }
 
     if (name === 'alertas_sector') {
-      const { sector, nivel } = args
+      const { nivel } = args
+      const resuelto = resolverSector(String(args.sector ?? ''))
+      if ('error' in resuelto) return resuelto
+      const sector = resuelto.sector
       const where = nivel ? 'sector = ? AND nivel_riesgo = ?' : 'sector = ?'
       const params: any[] = nivel ? [sector, nivel, 10] : [sector, 10]
       const rows = db.query(
@@ -155,7 +173,12 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
 
       // Las banderas con parámetro se guardan como CODIGO(n/total); las simples, como CODIGO
       const patrones = [`%"${bandera}"%`, `%"${bandera}(%`]
-      const sector = args.sector ? String(args.sector) : null
+      let sector: string | null = null
+      if (args.sector) {
+        const resuelto = resolverSector(String(args.sector))
+        if ('error' in resuelto) return resuelto
+        sector = resuelto.sector
+      }
       const where = `(flags LIKE ? OR flags LIKE ?)${sector ? ' AND sector = ?' : ''}`
       const params: any[] = sector ? [...patrones, sector] : patrones
 

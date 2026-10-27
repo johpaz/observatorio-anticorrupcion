@@ -139,3 +139,22 @@ describe('llamarCompleto (respuestas cortadas por límite de tokens)', () => {
     expect(res.content).toBe('ok')
   })
 })
+
+describe('sectores aproximados', () => {
+  test('alertas_sector y buscar_por_bandera aceptan nombres aproximados y sin tildes', async () => {
+    db.prepare(`INSERT OR REPLACE INTO scores (nit, nombre, score_total, nivel_riesgo, flags, sector) VALUES (?,?,?,?,?,?)`)
+      .run('777', 'CONTRATISTA DEPORTIVO', 80, 'ROJO', '["VENCIDOS_SIN_CERRAR(3/5)"]', 'deportes')
+    for (const entrada of ['deportes', 'Deporte', 'DEPORTES', 'Deporte y Recreación']) {
+      const r: any = await executeTool('alertas_sector', { sector: entrada })
+      expect(Array.isArray(r) ? r.map((x: any) => x.nit) : r).toContain('777')
+    }
+    const b: any = await executeTool('buscar_por_bandera', { bandera: 'VENCIDOS_SIN_CERRAR', sector: 'deporte' })
+    expect(b.total_con_bandera).toBe(1)
+  })
+
+  test('un sector inexistente devuelve la lista de sectores válidos, no una lista vacía engañosa', async () => {
+    const r: any = await executeTool('alertas_sector', { sector: 'Astronomía' })
+    expect(r.error).toContain('no existe')
+    expect(r.sectores_validos).toContain('deportes')
+  })
+})
