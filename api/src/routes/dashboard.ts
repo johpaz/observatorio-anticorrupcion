@@ -12,7 +12,7 @@ const log = createLogger('dashboard')
 /** Precalcula el bootstrap del dashboard para que la primera visita no espere a Socrata. */
 export async function warmupDashboard(): Promise<void> {
   try {
-    await cachedDashboard('dashboard:bootstrap:v1', loadDashboardBootstrap)
+    await cachedDashboard('dashboard:bootstrap:v2', loadDashboardBootstrap)
     log.info('warmup: dashboard precalculado')
   } catch (err) {
     log.warn(`warmup: dashboard falló: ${String(err)}`)
@@ -36,13 +36,13 @@ const archivosQuery = t.Object({
 export const dashboardRoutes = new Elysia({ prefix: '/api' })
   .onError(({ error, set }) => { set.status = 500; return { error: String(error) } })
   .get('/dashboard/bootstrap', ({ query }) =>
-    cachedDashboard('dashboard:bootstrap:v1', loadDashboardBootstrap, query.refresh === '1'), {
+    cachedDashboard('dashboard:bootstrap:v2', loadDashboardBootstrap, query.refresh === '1'), {
       query: t.Object({ refresh: refreshQuery }),
     })
   .get('/contratos/dashboard', ({ query }) => {
     const { refresh, ...filters } = query
     return cachedDashboard(
-      canonicalCacheKey('dashboard:contratos:v1', filters),
+      canonicalCacheKey('dashboard:contratos:v2', filters),
       () => loadContratosDashboard(filters),
       refresh === '1',
     )

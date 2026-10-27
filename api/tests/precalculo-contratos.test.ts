@@ -25,8 +25,8 @@ beforeAll(() => initDb())
 
 describe('precálculo de contratos', () => {
   test('la clave coincide con la que arma el endpoint para la vista que pide el frontend', () => {
-    expect(claveContratos({ year: '2024' })).toBe('dashboard:contratos:v1:{"limit":"20","page":"1","year":"2024"}')
-    expect(claveContratos({})).toBe('dashboard:contratos:v1:{"limit":"20","page":"1"}')
+    expect(claveContratos({ year: '2024' })).toBe('dashboard:contratos:v2:{"limit":"20","page":"1","year":"2024"}')
+    expect(claveContratos({})).toBe('dashboard:contratos:v2:{"limit":"20","page":"1"}')
   })
 
   test('vistas: sin filtros + últimos años + sectores', () => {
@@ -37,7 +37,7 @@ describe('precálculo de contratos', () => {
   test('guarda cada vista en SQLite y la siguiente pasada no vuelve a llamar a datos.gov.co', async () => {
     const r1 = await precalcularContratos()
     expect(r1).toEqual({ calculadas: 4, vigentes: 0, fallidas: 0 })
-    const claves = db.query(`SELECT key FROM dashboard_cache WHERE key LIKE 'dashboard:contratos:v1:%'`).all() as { key: string }[]
+    const claves = db.query(`SELECT key FROM dashboard_cache WHERE key LIKE 'dashboard:contratos:v2:%'`).all() as { key: string }[]
     expect(claves.map(c => c.key)).toContain(claveContratos({ sector: 'defensa' }))
 
     const antes = llamadas

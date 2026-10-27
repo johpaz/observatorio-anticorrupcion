@@ -1,11 +1,11 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import FilterBar from '../components/FilterBar'
 import KPICard from '../components/KPICard'
 import BarChartComponent from '../components/charts/BarChartComponent'
 import LineChartComponent from '../components/charts/LineChartComponent'
 import PieChartComponent from '../components/charts/PieChartComponent'
 import DataTable from '../components/DataTable'
-import { dashboardApi } from '../api/client'
+import { dashboardApi, contratosApi } from '../api/client'
 import { formatCOP, formatNumber, formatDate } from '../utils/formatters'
 import { useContratosStore, CONTRATOS_INITIAL, cacheKey } from '../store/useContratosStore'
 import { useSeo } from '../utils/useSeo'
@@ -18,6 +18,15 @@ const TABLE_COLS = [
   { key: 'valor_del_contrato', label: 'Valor', format: (v: string) => formatCOP(parseFloat(v)) },
   { key: 'estado_contrato', label: 'Estado' },
   { key: 'fecha_de_firma', label: 'Firma', format: formatDate },
+  {
+    key: 'urlproceso', label: 'Documentos',
+    render: (row: any) => {
+      const url = row.urlproceso?.url
+      return typeof url === 'string' && /^https?:\/\//.test(url)
+        ? <a href={url} target="_blank" rel="noopener noreferrer" className="text-[#004884] font-semibold hover:underline">Ver proceso ↗</a>
+        : '-'
+    },
+  },
 ]
 
 export default function ContratosPage() {
@@ -60,6 +69,20 @@ export default function ContratosPage() {
   }, [filters, page, metadataLoaded, getFromCache, saveToCache, setData, setLoading, setMetadata])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // Los gráficos salen de SQLite; las filas de la tabla se piden aparte a datos.gov.co (con su caché),
+  // así los filtros no esperan a la tabla.
+  const [lista, setLista] = useState<any[]>([])
+  const [listaLoading, setListaLoading] = useState(false)
+  useEffect(() => {
+    let vigente = true
+    setListaLoading(true)
+    contratosApi.list({ ...(filters as Record<string, string>), page: String(page), limit: '20' })
+      .then(rows => { if (vigente) setLista(Array.isArray(rows) ? rows : []) })
+      .catch(() => { if (vigente) setLista([]) })
+      .finally(() => { if (vigente) setListaLoading(false) })
+    return () => { vigente = false }
+  }, [filters, page])
 
   const handleChange = (key: string, value: string) => {
     setFilters({ ...filters, [key]: value })
@@ -167,7 +190,7 @@ export default function ContratosPage() {
 
       <div className="card p-5 border border-slate-200">
         <h2 className="text-xs font-bold text-slate-600 mb-4 serif uppercase tracking-wider">Lista de Contratos Filtrados</h2>
-        <DataTable data={data.list} columns={TABLE_COLS} page={page} onPageChange={setPage} loading={loading} />
+        <DataTable data={lista} columns={TABLE_COLS} page={page} onPageChange={setPage} loading={listaLoading} />
       </div>
     </div>
   )

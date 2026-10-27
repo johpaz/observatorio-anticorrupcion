@@ -135,7 +135,7 @@ async function consultar(params: Record<string, string>): Promise<any[]> {
       return await res.json() as any[]
     } catch (err) {
       ultimo = err
-      await Bun.sleep(2_000 * intento)
+      await Bun.sleep(Number(Bun.env.CUBO_REINTENTO_MS ?? 2_000) * intento)
     }
   }
   throw ultimo

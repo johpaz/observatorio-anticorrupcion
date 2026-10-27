@@ -11,7 +11,8 @@ import { initDb } from './db/client'
 import { startChannels } from './channels'
 import { createLogger } from './utils/logger'
 import { startProveedoresScheduler } from './services/proveedores'
-import { startPrecalculoContratos } from './services/precalculo-contratos'
+import { startPrecalculoContratos, precalcularContratos } from './services/precalculo-contratos'
+import { startCuboContratos } from './services/cubo-contratos'
 
 const log = createLogger('api')
 
@@ -59,4 +60,5 @@ if (Bun.env.ALERTAS_WARMUP !== '0') {
   setTimeout(() => { warmupDashboard() }, 3_000)
   startProveedoresScheduler()
   startPrecalculoContratos()
+  startCuboContratos(() => precalcularContratos(true))
 }

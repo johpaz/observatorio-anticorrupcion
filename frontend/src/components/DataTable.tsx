@@ -2,6 +2,8 @@ interface Column {
   key: string
   label: string
   format?: (value: any) => string
+  /** Celda personalizada (p. ej. un enlace); recibe la fila completa */
+  render?: (row: any) => React.ReactNode
 }
 
 interface Props {
@@ -48,7 +50,7 @@ export default function DataTable({ data, columns, page, onPageChange, loading, 
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                   {columns.map(col => (
                     <td key={col.key} className="px-4 py-3 text-slate-700 max-w-[240px] truncate font-medium">
-                      {col.format ? col.format(row[col.key]) : (row[col.key] ?? '-')}
+                      {col.render ? col.render(row) : col.format ? col.format(row[col.key]) : (row[col.key] ?? '-')}
                     </td>
                   ))}
                 </tr>
