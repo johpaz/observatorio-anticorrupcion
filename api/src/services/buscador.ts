@@ -5,6 +5,17 @@ import { createLogger } from '../utils/logger'
 const log = createLogger('buscador')
 const PROCURADURIA_URL = Bun.env.PROCURADURIA_URL ?? 'http://localhost:3000'
 
+/** Ninguna fuente puede dejar la búsqueda colgada: pasado este tiempo se responde sin ella. */
+const FUENTE_TIMEOUT_MS = Number(Bun.env.BUSQUEDA_TIMEOUT_MS ?? 15_000)
+
+function conTimeout<T>(promesa: Promise<T>, ms = FUENTE_TIMEOUT_MS): Promise<T> {
+  let timer: Timer
+  const limite = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`sin respuesta en ${ms} ms`)), ms)
+  })
+  return Promise.race([promesa, limite]).finally(() => clearTimeout(timer))
+}
+
 export type FuenteBusqueda = 'score' | 'secop' | 'sanciones'
 
 export interface Candidato {
@@ -126,8 +137,8 @@ export async function buscarPorNombre(q: string): Promise<ResultadoBusqueda> {
 
   const settled = await Promise.allSettled([
     Promise.resolve().then(() => buscarEnScores(toks)),
-    buscarEnSecop(toks),
-    buscarEnSanciones(query),
+    conTimeout(buscarEnSecop(toks)),
+    conTimeout(buscarEnSanciones(query)),
   ])
 
   const fuentes_fallidas: FuenteBusqueda[] = []

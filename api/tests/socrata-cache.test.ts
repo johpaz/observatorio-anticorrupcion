@@ -131,3 +131,24 @@ describe('Respaldo persistente en SQLite (stale-on-error)', () => {
     expect(data).toEqual([{ v: 'ok' }])
   })
 })
+
+describe('Consultas interactivas (búsqueda por nombre)', () => {
+  test('no hacen cola detrás de los agregados lentos que ocupan todas las plazas', async () => {
+    const liberar: Array<() => void> = []
+    nextResponse = () => new Promise<Response>(resolve => liberar.push(() => resolve(Response.json([{ lento: true }]))))
+
+    // 5 agregados lentos: 3 ocupan las plazas (SOCRATA_CONCURRENCY=3) y 2 quedan esperando
+    const lentos = Array.from({ length: 5 }, (_, i) => socrataQuery('contratos', { $where: `slow-${Date.now()}-${i}` }))
+    await Bun.sleep(20)
+
+    nextResponse = () => Response.json([{ nit: '79223627', nombre: 'DIEGO CANCINO' }])
+    const t0 = Date.now()
+    const filas = await socrataQuery('proveedores', { $where: `nombre-${Date.now()}` })
+    expect(Date.now() - t0).toBeLessThan(500)
+    expect(filas).toEqual([{ nit: '79223627', nombre: 'DIEGO CANCINO' }])
+
+    while (liberar.length < 5 && Date.now() - t0 < 1_000) await Bun.sleep(5)
+    for (const l of liberar) l()
+    await Promise.allSettled(lentos)
+  })
+})

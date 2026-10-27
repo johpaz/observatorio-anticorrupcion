@@ -63,6 +63,22 @@ describe('buscarPorNombre', () => {
     expect(r.candidatos.length).toBeGreaterThan(0)
   })
 
+  test('si SECOP no responde a tiempo, la búsqueda igual responde y marca la fuente como fallida', async () => {
+    process.env.BUSQUEDA_TIMEOUT_MS = '50'
+    const previo = globalThis.fetch
+    globalThis.fetch = (async (url: any) => {
+      if (String(url).includes('qmzu-gj57')) return new Promise<Response>(() => {}) // nunca responde
+      return previo(url)
+    }) as typeof fetch
+    const { buscarPorNombre: buscar } = await import('../src/services/buscador?timeout')
+    const t0 = Date.now()
+    const r = await buscar('diego cancino')
+    globalThis.fetch = previo
+    delete process.env.BUSQUEDA_TIMEOUT_MS
+    expect(Date.now() - t0).toBeLessThan(2_000)
+    expect(r.fuentes_fallidas).toContain('secop')
+  })
+
   test('encuentra contratistas ya calculados en la tabla scores', async () => {
     db.prepare(`INSERT INTO scores (nit, nombre, score_total, nivel_riesgo, flags, sector) VALUES (?,?,?,?,?,?)`)
       .run('900111222', 'Constructora Andina Ltda', 72, 'ROJO', '[]', 'Transporte')

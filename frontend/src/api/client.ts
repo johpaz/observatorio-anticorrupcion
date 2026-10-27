@@ -283,7 +283,8 @@ export const esBusquedaPorNombre = (q: string): boolean => /[a-záéíóúñü]/
 
 export const contratistaApi = {
   buscar: (q: string): Promise<BusquedaContratista> =>
-    fetchData('/contratista/buscar', { q }),
+    // Sin reintentos: la API ya acota cada fuente y repetir solo alargaría la espera
+    fetchData('/contratista/buscar', { q }, 0),
   get: (nit: string, refresh = false): Promise<ContratistaResponse> =>
     fetchData(`/contratista/${encodeURIComponent(nit)}`, refresh ? { refresh: '1' } : {}),
 }
